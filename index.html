@@ -56,7 +56,10 @@ button{cursor:pointer;border:0;background:none}
 .b{max-width:min(78%,520px);padding:9px 14px 6px;animation:pop .25s cubic-bezier(.3,1.5,.5,1);word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap}
 .me .b{background:var(--own);color:var(--ownink);border-radius:24px 4px 24px 4px}
 .ot .b{background:var(--other);border-radius:4px 24px 4px 24px}
-.b .n{font-size:12px;font-weight:800;color:var(--acc);display:block}.b time{display:block;text-align:right;font-size:11px;opacity:.6;margin-top:1px}
+.b .n{font-size:12px;font-weight:800;color:var(--acc);display:block}.b time{display:block;text-align:right;font-size:11px;margin-top:1px;color:color-mix(in srgb,currentColor 60%,transparent)}
+.tk{letter-spacing:-2px;margin-left:5px}.tk.r{color:#D83A17;font-weight:800}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--acc);margin-left:auto;flex:none}
+#hs.on{color:#2FB37A;font-weight:700}
 @keyframes pop{from{opacity:0;transform:scale(.85) rotate(-2deg)}}
 form{display:flex;gap:10px;padding:10px 14px;padding-bottom:max(10px,env(safe-area-inset-bottom));background:var(--panel);border-top:2px solid var(--line);align-items:flex-end}
 textarea{flex:1;resize:none;max-height:120px;padding:11px 16px;border-radius:22px 6px 22px 22px;border:2px solid var(--line);background:var(--bg);outline:0}textarea:focus{border-color:var(--lil)}
@@ -206,7 +209,7 @@ setPersistence(auth,browserLocalPersistence).catch(()=>{}); // аккаунт о
 
 /* ---------- состояние ---------- */
 const cache=new Map(),loading=new Set();
-let me=null,meDoc=null,cur=null,peer=null,chats=[],found=null,lastDocs=[],unsubs=[],unsubMsgs=null;
+let me=null,meDoc=null,cur=null,peer=null,chats=[],found=null,lastDocs=[],unsubs=[],unsubMsgs=null,unsubPeer=null,presOn=false,hb=null;
 let mode="in",regPhoto="",pending=null,tgProfile=null,pPhoto="",draft={};
 const GLOBAL={uid:"global",name:"Общий чат",color:"#B79CFF"};
 
@@ -306,7 +309,7 @@ $("meb").onclick=()=>meDoc&&openProfile(false);
 $("pph").onclick=()=>pickPhoto(p=>{pPhoto=p;drawP()});
 $("ppr").onclick=()=>{pPhoto="";drawP()};$("pn").oninput=drawP;
 $("pc").onclick=()=>{$("pm").hidden=true};
-$("po").onclick=()=>{$("pm").hidden=true;signOut(auth)};
+$("po").onclick=async()=>{$("pm").hidden=true;stopHb();await setPresence(false);signOut(auth)};
 $("ps").onclick=async()=>{
   const name=$("pn").value.trim(),un=$("pu").value.trim().toLowerCase().replace(/^@/,"");$("pe").textContent="";
   if(!name){$("pe").textContent="Введите имя.";return}
@@ -322,7 +325,7 @@ $("ps").onclick=async()=>{
 onAuthStateChanged(auth,async u=>{
   $("splash").hidden=true;
   unsubs.forEach(f=>f());unsubs=[];unsubMsgs&&unsubMsgs();unsubMsgs=null;
-  if(!u){tgProfile=null;draft={};me=meDoc=null;cur=peer=null;chats=[];found=null;lastDocs=[];cache.clear();
+  if(!u){clearInterval(hb);hb=null;presOn=false;marked.clear();unsubPeer&&unsubPeer();unsubPeer=null;tgProfile=null;draft={};me=meDoc=null;cur=peer=null;chats=[];found=null;lastDocs=[];cache.clear();
     $("app").hidden=true;$("pm").hidden=true;$("auth").hidden=false;$("app").classList.remove("open");$("chat").classList.add("idle");return}
   me=u;$("auth").hidden=true;$("app").hidden=false;
   const ref=doc(db,"users",u.uid);
@@ -340,21 +343,65 @@ onAuthStateChanged(auth,async u=>{
     meDoc=s.exists()?{uid:u.uid,...s.data()}:{uid:u.uid,name:draft.name||"",photo:draft.photo||"",color:colorOf(u.uid),_new:true};
     cache.set(u.uid,meDoc);drawMe();
     if(!meDoc.username&&$("pm").hidden)openProfile(true);redraw();
+    if(meDoc.username&&!presOn){presOn=true;startPresence()}
   },e=>toast(errText(e))));
   unsubs.push(onSnapshot(query(collection(db,"chats"),where("members","array-contains",u.uid)),s=>{
     chats=s.docs.map(d=>({id:d.id,...d.data()}));loadUsers(chats.map(c=>c.members.find(x=>x!==u.uid)));drawList();
+    if(cur&&lastDocs.length)renderMsgs(lastDocs,false);markDelivery();
   },e=>toast(errText(e))));
 });
+
+/* ---------- «в сети» и галочки ---------- */
+const tms=v=>v&&v.toMillis?v.toMillis():0;
+function statusOf(p){
+  const ls=tms(p.lastSeen),now=Date.now();
+  if(!ls)return{t:"не в сети"};
+  if(p.online&&now-ls<150000)return{t:"в сети",on:true};
+  const diff=now-ls,d=new Date(ls),hm=d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+  if(diff<60000)return{t:"был(а) только что"};
+  if(diff<3600000)return{t:`был(а) ${Math.floor(diff/60000)} мин. назад`};
+  if(d.toDateString()===new Date(now).toDateString())return{t:`был(а) сегодня в ${hm}`};
+  if(d.toDateString()===new Date(now-864e5).toDateString())return{t:`был(а) вчера в ${hm}`};
+  return{t:`был(а) ${d.toLocaleDateString("ru-RU",{day:"numeric",month:"long"})}`};
+}
+function setPresence(on){
+  if(!me||!meDoc||meDoc._new||!meDoc.username)return Promise.resolve();
+  return setDoc(doc(db,"users",me.uid),{online:on,lastSeen:serverTimestamp()},{merge:true}).catch(()=>{});
+}
+function stopHb(){clearInterval(hb);hb=null}
+function startPresence(){
+  stopHb();if(document.visibilityState!=="visible")return;
+  setPresence(true);hb=setInterval(()=>{if(document.visibilityState==="visible")setPresence(true)},60000);
+}
+const marked=new Set();
+function markDelivery(){ // «доставлено» — приложение получило сообщение, «прочитано» — чат открыт на экране
+  if(!me||!chats.length)return;
+  for(const c of chats){
+    if(c.lastFrom===me.uid||!c.lastAt)continue;
+    const la=tms(c.lastAt);if(!la)continue;
+    const reading=c.id===cur&&document.visibilityState==="visible",type=reading?"seen":"got";
+    if(tms(c[type]&&c[type][me.uid])>=la)continue;
+    const k=c.id+":"+la+":"+type;if(marked.has(k))continue;marked.add(k);
+    const f={[me.uid]:serverTimestamp()};
+    setDoc(doc(db,"chats",c.id),reading?{seen:f,got:f}:{got:f},{merge:true}).catch(()=>marked.delete(k));
+  }
+}
+document.addEventListener("visibilitychange",()=>{
+  if(!me)return;
+  if(document.visibilityState==="visible"){startPresence();markDelivery()}else{stopHb();setPresence(false)}
+});
+addEventListener("pagehide",()=>setPresence(false));
+setInterval(()=>{if(cur&&peer&&peer.uid!=="global")refreshHead()},30000);
 
 /* ---------- список чатов и поиск ---------- */
 const chatId=p=>p.uid==="global"?"global":[me.uid,p.uid].sort().join("_");
 const ms=c=>c.lastAt&&c.lastAt.toMillis?c.lastAt.toMillis():Date.now();
 function sec(t){const d=document.createElement("div");d.className="sec";d.textContent=t;$("list").append(d)}
 function note(t){const e=document.createElement("p");e.style.cssText="padding:14px 18px;color:var(--mute);font-size:14px";e.textContent=t;$("list").append(e)}
-function item(p,sub,id){
+function item(p,sub,id,dot){
   const b=document.createElement("button");b.className="item"+(cur===id?" on":"");
   const t=document.createElement("div"),n=document.createElement("b"),s=document.createElement("small");s.className="pv";
-  n.textContent=p.name||"…";s.textContent=sub;t.append(n,s);b.append(avatar(p),t);b.onclick=()=>openChat(p);$("list").append(b);
+  n.textContent=p.name||"…";s.textContent=sub;t.append(n,s);b.append(avatar(p),t);if(dot){const i=document.createElement("i");i.className="dot";b.append(i)}b.onclick=()=>openChat(p);$("list").append(b);
 }
 function drawList(){
   if(!me)return;$("list").textContent="";
@@ -363,7 +410,7 @@ function drawList(){
   if(!chats.length)note("Пока пусто. Найди человека по @username в поиске выше и напиши ему.");
   [...chats].sort((a,b)=>ms(b)-ms(a)).forEach(c=>{
     const o=c.members.find(x=>x!==me.uid),p=cache.get(o)||{uid:o,name:"…"};
-    item(p,(c.lastFrom===me.uid?"Ты: ":"")+(c.lastText||""),c.id);
+    item(p,(c.lastFrom===me.uid?"Ты: ":"")+(c.lastText||""),c.id,c.lastFrom!==me.uid&&c.id!==cur&&tms(c.lastAt)>tms(c.seen&&c.seen[me.uid]));
   });
 }
 let st;const qv=()=>$("q").value.trim().toLowerCase().replace(/^@/,"");
@@ -380,12 +427,15 @@ async function search(q){
 /* ---------- чат ---------- */
 function refreshHead(){
   const p=peer.uid==="global"?GLOBAL:cache.get(peer.uid)||peer;
-  $("hav").replaceChildren(avatar(p,"sm"));$("ht").textContent=p.name;$("hs").textContent=p.uid==="global"?"Общий чат для всех":p.username?"@"+p.username:"";
+  $("hav").replaceChildren(avatar(p,"sm"));$("ht").textContent=p.name;if(p.uid==="global"){$("hs").textContent="Общий чат для всех";$("hs").className=""}
+  else{const st=statusOf(p);$("hs").textContent=(p.username?"@"+p.username+" · ":"")+st.t;$("hs").className=st.on?"on":""}
 }
 function openChat(p){
   cache.set(p.uid,p.uid==="global"?cache.get("global")||GLOBAL:p);
   const wasOpen=$("app").classList.contains("open");
   peer=p;cur=chatId(p);unsubMsgs&&unsubMsgs();$("msgs").textContent="";lastDocs=[];
+  unsubPeer&&unsubPeer();unsubPeer=null;
+  if(p.uid!=="global")unsubPeer=onSnapshot(doc(db,"users",p.uid),s=>{if(s.exists()&&peer&&peer.uid===p.uid){cache.set(p.uid,{uid:p.uid,...s.data()});refreshHead()}},()=>{});
   $("q").value="";found=null;
   $("chat").classList.remove("idle");$("app").classList.add("open");refreshHead();drawList();
   if(!wasOpen)history.pushState({c:1},"");
@@ -393,9 +443,9 @@ function openChat(p){
   unsubMsgs=onSnapshot(query(collection(db,"chats",cur,"messages"),orderBy("createdAt"),limitToLast(200)),s=>{
     lastDocs=s.docs;loadUsers(s.docs.map(d=>d.data().from));renderMsgs(lastDocs,first);first=false;
   },e=>toast(errText(e)));
-  if(innerWidth>780)$("mt").focus();
+  markDelivery();if(innerWidth>780)$("mt").focus();
 }
-function closeChat(){unsubMsgs&&unsubMsgs();unsubMsgs=null;cur=peer=null;lastDocs=[];$("app").classList.remove("open");$("chat").classList.add("idle");drawList()}
+function closeChat(){unsubMsgs&&unsubMsgs();unsubMsgs=null;unsubPeer&&unsubPeer();unsubPeer=null;cur=peer=null;lastDocs=[];$("app").classList.remove("open");$("chat").classList.add("idle");drawList()}
 $("back").onclick=()=>history.state&&history.state.c?history.back():closeChat();
 addEventListener("popstate",closeChat);
 
@@ -403,6 +453,7 @@ const fmt=d=>d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
 function renderMsgs(docs,first){
   const box=$("msgs"),stick=first||box.scrollHeight-box.scrollTop-box.clientHeight<140;
   box.textContent="";let day="";
+  const meta=chats.find(c=>c.id===cur)||{},pu=cur&&cur!=="global"?cur.split("_").find(x=>x!==me.uid):null;
   for(const d of docs){
     const m=d.data({serverTimestamps:"estimate"}),t=m.createdAt?m.createdAt.toDate():new Date();
     const ds=t.toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
@@ -414,6 +465,11 @@ function renderMsgs(docs,first){
     if(!mine&&cur==="global"){const n=document.createElement("span");n.className="n";n.textContent=u.name;b.append(n)}
     const tx=document.createElement("span");tx.textContent=m.text;   // только textContent — защита от XSS
     const tm=document.createElement("time");tm.textContent=fmt(t);
+    if(mine&&pu){
+      let st="s";
+      if(d.metadata.hasPendingWrites)st="p";else if(tms(meta.seen&&meta.seen[pu])>=t.getTime())st="r";else if(tms(meta.got&&meta.got[pu])>=t.getTime())st="d";
+      const tk=document.createElement("span");tk.className="tk"+(st==="r"?" r":"");tk.textContent=st==="p"?"○":st==="s"?"✓":"✓✓";tm.append(tk);
+    }
     b.append(tx,tm);row.append(b);box.append(row);
   }
   if(stick)box.scrollTop=box.scrollHeight;
@@ -427,7 +483,7 @@ $("mf").onsubmit=async e=>{
   try{
     const b=writeBatch(db);
     b.set(doc(collection(db,"chats",cur,"messages")),{text,from:me.uid,createdAt:serverTimestamp()});
-    if(cur!=="global")b.set(doc(db,"chats",cur),{members:cur.split("_"),lastText:text.slice(0,120),lastFrom:me.uid,lastAt:serverTimestamp()},{merge:true});
+    if(cur!=="global")b.set(doc(db,"chats",cur),{members:cur.split("_"),lastText:text.slice(0,120),lastFrom:me.uid,lastAt:serverTimestamp(),seen:{[me.uid]:serverTimestamp()}},{merge:true});
     await b.commit();
   }catch(x){mt.value=text;toast(errText(x))}
 };
