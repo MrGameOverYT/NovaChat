@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#1D1628">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -18,7 +18,7 @@
 :root{--bg:#FFF6EA;--panel:#FFFBF5;--ink:#1D1628;--mute:#7A6F88;--own:#C6F25C;--ownink:#1D1628;--other:#E9DFFF;--acc:#FF6B4A;--lil:#B79CFF;--line:#EADFCF}
 @media(prefers-color-scheme:dark){:root{--bg:#130F1B;--panel:#1B1526;--ink:#F5EEFF;--mute:#9B8FB0;--other:#2B2140;--acc:#FF7A5C;--line:#2E2440}}
 *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;width:100%;overflow:hidden;overscroll-behavior:none}
+html,body{height:100%;width:100%;overflow:hidden;overscroll-behavior:none}body{position:fixed;top:0;left:0;height:var(--vh,100%)}
 body{font:16px/1.4 Manrope,system-ui,sans-serif;background:var(--bg);color:var(--ink);overflow:hidden}
 h1,h2,.logo b{font-family:Unbounded,Manrope,sans-serif;font-weight:700}
 button,input,textarea{font:inherit;color:inherit}
@@ -164,6 +164,17 @@ if("serviceWorker" in navigator){
   navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had)location.reload()}); // новая версия → сама перезагрузит
 }
 const $=id=>document.getElementById(id);
+/* клавиатура: приложение всегда равно видимой части экрана, шапка на месте, сообщения над клавиатурой */
+const vv=window.visualViewport;
+function fit(){
+  const box=$("msgs"),near=box.scrollHeight-box.scrollTop-box.clientHeight<200;
+  document.documentElement.style.setProperty("--vh",(vv?vv.height:innerHeight)+"px");
+  document.body.style.transform=vv&&vv.offsetTop?`translateY(${vv.offsetTop}px)`:"";
+  if(!vv||!vv.offsetTop)window.scrollTo(0,0);
+  if(near)box.scrollTop=box.scrollHeight;
+}
+if(vv){vv.addEventListener("resize",fit);vv.addEventListener("scroll",fit)}
+addEventListener("resize",fit);fit();
 const COLORS=["#FF6B4A","#C6F25C","#B79CFF","#FFC857","#7DE2C3","#FF8FB1"];
 const colorOf=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]};
 const UN_RE=/^[a-z0-9_]{3,20}$/,UN_MSG="Username: 3–20 символов, только латиница, цифры и _.";
