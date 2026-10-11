@@ -18,7 +18,7 @@
 :root{--bg:#FFF6EA;--panel:#FFFBF5;--ink:#1D1628;--mute:#7A6F88;--own:#C6F25C;--ownink:#1D1628;--other:#E9DFFF;--acc:#FF6B4A;--lil:#B79CFF;--line:#EADFCF}
 @media(prefers-color-scheme:dark){:root{--bg:#130F1B;--panel:#1B1526;--ink:#F5EEFF;--mute:#9B8FB0;--other:#2B2140;--acc:#FF7A5C;--line:#2E2440}}
 *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
+html,body{height:100%;width:100%;overflow:hidden;overscroll-behavior:none}
 body{font:16px/1.4 Manrope,system-ui,sans-serif;background:var(--bg);color:var(--ink);overflow:hidden}
 h1,h2,.logo b{font-family:Unbounded,Manrope,sans-serif;font-weight:700}
 button,input,textarea{font:inherit;color:inherit}
@@ -27,17 +27,17 @@ button{cursor:pointer;border:0;background:none}
 .logo{display:flex;align-items:center;gap:10px}.logo svg{width:34px;height:34px;animation:spin 14s linear infinite}.logo b{font-size:20px;letter-spacing:-.5px}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* вход */
-#auth{height:100%;display:grid;place-items:center;padding:20px;background:radial-gradient(520px 360px at 85% 5%,rgba(183,156,255,.35),transparent),radial-gradient(460px 340px at 5% 95%,rgba(255,107,74,.28),transparent),var(--bg);overflow:auto}
-.card{width:100%;max-width:400px;background:var(--panel);border:2px solid var(--ink);border-radius:32px 8px 32px 8px;padding:26px;box-shadow:8px 8px 0 var(--acc);display:grid;gap:14px}
+#auth{height:100%;display:flex;padding:14px;background:radial-gradient(520px 360px at 85% 5%,rgba(183,156,255,.35),transparent),radial-gradient(460px 340px at 5% 95%,rgba(255,107,74,.28),transparent),var(--bg);overflow:auto}
+.card{width:100%;max-width:400px;background:var(--panel);border:2px solid var(--ink);border-radius:32px 8px 32px 8px;padding:20px;margin:auto;box-shadow:6px 6px 0 var(--acc);display:grid;gap:10px}.card h2{font-size:20px}
 .tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border-radius:14px;padding:4px}
 .tabs button{padding:9px;border-radius:11px;font-weight:600;color:var(--mute)}.tabs .on{background:var(--ink);color:var(--bg)}
-.card input{width:100%;padding:13px 14px;border-radius:14px;border:2px solid var(--line);background:var(--bg);outline:0}.card input:focus{border-color:var(--lil)}
+.card input{width:100%;padding:11px 14px;border-radius:14px;border:2px solid var(--line);background:var(--bg);outline:0}.card input:focus{border-color:var(--lil)}
 .btn{background:var(--acc);color:#1D1628;font-weight:800;padding:13px;border-radius:14px;width:100%;transition:transform .15s}.btn:active{transform:scale(.97)}
 .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border-radius:14px;border:2px solid var(--ink);font-weight:800;background:var(--bg);transition:transform .15s}.gbtn:active{transform:scale(.97)}.gbtn svg{width:20px;height:20px}
 .or{text-align:center;color:var(--mute);font-size:13px}#tg{display:flex;justify-content:center;min-height:40px}
-.err{color:#D8344A;font-size:14px;min-height:18px}
+.err{color:#D8344A;font-size:14px}.err:empty{display:none}
 /* приложение */
-#app{height:100%;display:grid;grid-template-columns:350px 1fr;position:relative}
+#app{height:100%;display:grid;grid-template-columns:350px 1fr;position:relative;overflow:hidden}
 #side{background:var(--panel);border-right:2px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .shead{padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
 .search{margin:0 14px 10px;padding:11px 16px;border-radius:99px;border:2px solid var(--line);background:var(--bg);outline:0;width:calc(100% - 28px)}.search:focus{border-color:var(--lil)}
@@ -70,7 +70,7 @@ textarea{flex:1;resize:none;max-height:120px;padding:11px 16px;border-radius:22p
 .sec{padding:10px 14px 4px;font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
 .pick{display:flex;align-items:center;gap:14px}
 .lnk{color:var(--acc);font-weight:800;font-size:14px;text-align:left}
-.modal{position:fixed;inset:0;background:rgba(10,6,16,.6);display:grid;place-items:center;padding:16px;z-index:20;overflow:auto}
+.modal{position:fixed;inset:0;background:rgba(10,6,16,.6);display:flex;padding:16px;z-index:20;overflow:auto}
 .splash{height:100%;display:grid;place-items:center}.splash svg{width:64px;height:64px;animation:spin 3s linear infinite}
 .unw{position:relative}.unw span{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--mute)}.card .unw input{padding-left:30px}
 @media(max-width:780px){
@@ -145,6 +145,7 @@ const CFG = {
 <div class="modal" id="pm" hidden><div class="card">
  <h2 id="pt">Профиль</h2>
  <div class="pick"><div id="pav"></div><div style="display:grid;gap:8px"><button type="button" class="lnk" id="pph">Выбрать фото</button><button type="button" class="lnk" id="ppr" style="color:var(--mute)">Убрать фото</button></div></div>
+ <div style="display:flex;gap:14px;flex-wrap:wrap"><button type="button" class="lnk" id="pig" hidden>Заполнить из Google</button><button type="button" class="lnk" id="pit" hidden>Заполнить из Telegram</button></div>
  <input id="pn" placeholder="Имя" maxlength="40">
  <div class="unw"><span>@</span><input id="pu" placeholder="username" maxlength="20" autocapitalize="none" autocomplete="off"></div>
  <small style="color:var(--mute)">Username: 3–20 символов, латиница, цифры и _. По нему тебя найдут другие.</small>
@@ -188,7 +189,7 @@ setPersistence(auth,browserLocalPersistence).catch(()=>{}); // аккаунт о
 /* ---------- состояние ---------- */
 const cache=new Map(),loading=new Set();
 let me=null,meDoc=null,cur=null,peer=null,chats=[],found=null,lastDocs=[],unsubs=[],unsubMsgs=null;
-let mode="in",regPhoto="",pending=null,tgProfile=null,pPhoto="";
+let mode="in",regPhoto="",pending=null,tgProfile=null,pPhoto="",draft={};
 const GLOBAL={uid:"global",name:"Общий чат",color:"#B79CFF"};
 
 function avatar(u,cls=""){
@@ -266,14 +267,22 @@ async function saveProfile(uid,p,oldUn,isNew){
   const b=writeBatch(db),un=p.username;
   if(un!==oldUn){b.set(doc(db,"usernames",un),{uid});if(oldUn)b.delete(doc(db,"usernames",oldUn))}
   const d={name:p.name,nameLower:p.name.toLowerCase(),username:un,photo:p.photo||""};
+  if(p.tg)d.tg=p.tg;
   if(isNew){d.color=colorOf(uid);d.createdAt=serverTimestamp()}
   b.set(doc(db,"users",uid),d,{merge:true});await b.commit();
 }
 const drawMe=()=>$("meb").replaceChildren(avatar(meDoc,"sm"));
 const drawP=()=>$("pav").replaceChildren(avatar({name:$("pn").value,photo:pPhoto,color:meDoc.color},"lg"));
+function srcs(){
+  const g=me.providerData.find(p=>p.providerId==="google.com"),t=tgProfile||(meDoc&&meDoc.tg);
+  return{g:g&&{name:g.displayName||"",photo:g.photoURL||""},t:t&&{name:t.name||"",photo:t.photo||""}};
+}
+function fill(x){$("pn").value=x.name;pPhoto=x.photo;drawP()}
+$("pig").onclick=()=>fill(srcs().g);$("pit").onclick=()=>fill(srcs().t);
 function openProfile(force){
   pPhoto=meDoc.photo||"";$("pt").textContent=force?"Завершим профиль":"Профиль";
-  $("pn").value=meDoc.name||"";$("pu").value=meDoc.username||"";$("pe").textContent="";$("pc").hidden=force;drawP();$("pm").hidden=false;
+  $("pn").value=meDoc.name==="Гость"?"":meDoc.name||"";$("pu").value=meDoc.username||"";$("pe").textContent="";$("pc").hidden=force;
+  const s=srcs();$("pig").hidden=!s.g;$("pit").hidden=!s.t;drawP();$("pm").hidden=false;
 }
 $("meb").onclick=()=>meDoc&&openProfile(false);
 $("pph").onclick=()=>pickPhoto(p=>{pPhoto=p;drawP()});
@@ -287,7 +296,7 @@ $("ps").onclick=async()=>{
   $("ps").disabled=true;
   try{
     if(un!==meDoc.username){const t=await getDoc(doc(db,"usernames",un));if(t.exists()&&t.data().uid!==me.uid)throw{userMessage:"Этот username уже занят."}}
-    await saveProfile(me.uid,{name,username:un,photo:pPhoto},meDoc.username||null,false);$("pm").hidden=true;
+    await saveProfile(me.uid,{name,username:un,photo:pPhoto,tg:tgProfile||meDoc.tg},meDoc.username||null,!!meDoc._new);$("pm").hidden=true;
   }catch(x){$("pe").textContent=x.code==="permission-denied"?"Не удалось сохранить: username занят или недоступен.":errText(x)}
   $("ps").disabled=false;
 };
@@ -295,26 +304,23 @@ $("ps").onclick=async()=>{
 onAuthStateChanged(auth,async u=>{
   $("splash").hidden=true;
   unsubs.forEach(f=>f());unsubs=[];unsubMsgs&&unsubMsgs();unsubMsgs=null;
-  if(!u){me=meDoc=null;cur=peer=null;chats=[];found=null;lastDocs=[];cache.clear();
+  if(!u){tgProfile=null;draft={};me=meDoc=null;cur=peer=null;chats=[];found=null;lastDocs=[];cache.clear();
     $("app").hidden=true;$("pm").hidden=true;$("auth").hidden=false;$("app").classList.remove("open");$("chat").classList.add("idle");return}
   me=u;$("auth").hidden=true;$("app").hidden=false;
   const ref=doc(db,"users",u.uid);
   try{
-    if(!(await getDoc(ref)).exists()){
-      const name=(tgProfile&&tgProfile.name)||(pending&&pending.name)||u.displayName||(u.email||"Гость").split("@")[0];
-      const photo=(pending&&pending.photo)||(tgProfile&&tgProfile.photo)||u.photoURL||"";
-      try{
-        if(pending&&pending.username)await saveProfile(u.uid,{name,username:pending.username,photo},null,true);
-        else throw 0;
-      }catch(x){
-        await setDoc(ref,{name,nameLower:name.toLowerCase(),photo,color:colorOf(u.uid),createdAt:serverTimestamp()});
-        if(pending&&pending.username)toast("Этот username уже занят. Выберите другой.");
+    const snap=await getDoc(ref);
+    if(!snap.exists()){
+      if(pending&&pending.username){
+        try{await saveProfile(u.uid,{name:pending.name,username:pending.username,photo:pending.photo},null,true)}
+        catch(x){draft={name:pending.name,photo:pending.photo};toast("Этот username уже занят. Выберите другой.")}
+        pending=null;
       }
-      pending=null;tgProfile=null;
-    }
+    }else if(tgProfile)await setDoc(ref,{tg:tgProfile},{merge:true});
   }catch(e){toast(errText(e))}
   unsubs.push(onSnapshot(ref,s=>{
-    if(!s.exists())return;meDoc={uid:u.uid,...s.data()};cache.set(u.uid,meDoc);drawMe();
+    meDoc=s.exists()?{uid:u.uid,...s.data()}:{uid:u.uid,name:draft.name||"",photo:draft.photo||"",color:colorOf(u.uid),_new:true};
+    cache.set(u.uid,meDoc);drawMe();
     if(!meDoc.username&&$("pm").hidden)openProfile(true);redraw();
   },e=>toast(errText(e))));
   unsubs.push(onSnapshot(query(collection(db,"chats"),where("members","array-contains",u.uid)),s=>{
