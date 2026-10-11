@@ -158,7 +158,11 @@ import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase
 import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signInWithCustomToken,signOut,GoogleAuthProvider,signInWithPopup,signInWithRedirect,setPersistence,browserLocalPersistence} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {getFirestore,collection,doc,getDoc,getDocs,setDoc,onSnapshot,query,orderBy,limit,limitToLast,where,serverTimestamp,writeBatch} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+if("serviceWorker" in navigator){
+  const had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(()=>{});
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had)location.reload()}); // новая версия → сама перезагрузит
+}
 const $=id=>document.getElementById(id);
 const COLORS=["#FF6B4A","#C6F25C","#B79CFF","#FFC857","#7DE2C3","#FF8FB1"];
 const colorOf=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]};

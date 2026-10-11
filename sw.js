@@ -1,5 +1,5 @@
-// NovaChat: простой service worker (оболочка приложения)
-const CACHE = 'novachat-v2';
+// NovaChat: service worker. Всегда сначала берёт свежие файлы из сети, кэш нужен только без интернета.
+const CACHE = 'novachat-v3';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -10,7 +10,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return; // Firebase и Telegram идут напрямую
-  e.respondWith(fetch(e.request).then(r => {
+  e.respondWith(fetch(u.href, { cache: 'no-cache' }).then(r => {
     const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r;
   }).catch(() => caches.match(e.request).then(m => m || caches.match('index.html'))));
 });
