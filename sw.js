@@ -1,5 +1,5 @@
 // NovaChat: service worker. Всегда сначала берёт свежие файлы из сети, кэш нужен только без интернета.
-const CACHE = 'novachat-v3';
+const CACHE = 'novachat-v4';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -13,4 +13,12 @@ self.addEventListener('fetch', e => {
   e.respondWith(fetch(u.href, { cache: 'no-cache' }).then(r => {
     const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r;
   }).catch(() => caches.match(e.request).then(m => m || caches.match('index.html'))));
+});
+// Нажатие на уведомление открывает NovaChat
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    for (const c of cs) { if ('focus' in c) return c.focus(); }
+    return self.clients.openWindow('./');
+  }));
 });

@@ -90,6 +90,30 @@ textarea{flex:1;resize:none;max-height:120px;padding:11px 16px;border-radius:22p
 .cb{width:66px;height:66px;border-radius:22px 6px 22px 6px;background:rgba(255,255,255,.14);color:#fff;font-size:24px;display:grid;place-items:center;align-content:center;gap:0;position:relative}
 .cb small{font-size:10px;opacity:.85;line-height:1}.cb.act{background:#fff;color:#1D1628}.cb.red{background:#E5484D;color:#fff}.cb.grn{background:#2FB37A;color:#fff}
 .cwarn{color:#FFC857;font-size:14px}
+.b{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#mm{position:fixed;inset:0;z-index:25;background:rgba(10,6,16,.35)}
+.mmc{position:absolute;display:grid;gap:8px;width:min(300px,calc(100% - 16px));animation:pop .18s ease-out}
+.rbar{display:flex;gap:2px;background:var(--panel);border:2px solid var(--line);border-radius:26px;padding:5px 8px;align-items:center;justify-content:space-between}
+.rbar button{font-size:24px;padding:2px 3px;border-radius:12px;transition:transform .12s}.rbar button:active{transform:scale(1.3)}
+.rbar .rmore{font-size:18px;background:var(--other);width:30px;height:30px;border-radius:50%;color:var(--mute)}
+.rgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:6px}
+.rgrid button{font-size:22px;padding:4px 0;border-radius:10px}
+.mlist{background:var(--panel);border:2px solid var(--line);border-radius:20px 6px 20px 6px;overflow:hidden}
+.mlist button{display:flex;gap:14px;align-items:center;width:100%;padding:13px 16px;text-align:left;font-weight:600}.mlist button:active{background:var(--other)}.mlist .dng{color:#E5484D}
+.rx{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.rc{padding:2px 8px;border-radius:12px;background:rgba(0,0,0,.14);font-size:13px}.rc.me{background:var(--acc);color:#1D1628}
+.rq{border-left:3px solid var(--acc);padding:2px 8px;margin-bottom:4px;border-radius:4px;background:rgba(0,0,0,.1);font-size:13px;cursor:pointer;display:grid}
+.rq b{color:var(--acc);font-size:12px}.rq span{opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fw{font-size:12px;opacity:.75;font-style:italic;margin-bottom:2px}
+.row.flash .b{outline:2px solid var(--acc);outline-offset:2px}
+.callb{display:flex;gap:12px;align-items:center;min-width:230px}.callb b{display:block}.callb small{opacity:.75}
+.ci{font-size:20px;font-weight:800;color:#2FB37A}.ci.bad{color:#E5484D}
+#ctx,#pinb{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-top:2px solid var(--line);font-size:14px}
+#pinb{border-top:0;border-bottom:2px solid var(--line);cursor:pointer}#pint{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ctx>div{flex:1;min-width:0;display:grid}#ctxn{color:var(--acc);font-size:12px;font-weight:800}#ctxx{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ctx button,#pinb button{font-size:16px;padding:4px 8px;color:var(--mute)}
+#chat.idle #ctx,#chat.idle #pinb{display:none}
+.nbn{margin:6px 8px;padding:10px 12px;border-radius:14px 5px 14px 5px;background:var(--other);font-weight:700;font-size:14px;text-align:left;width:calc(100% - 16px)}
 @media(max-width:780px){
  #app{grid-template-columns:1fr}
  #side,#chat{position:absolute;inset:0;transition:transform .3s cubic-bezier(.3,.9,.3,1)}
@@ -149,8 +173,10 @@ const CFG = {
       <div class="av sm" id="hav"></div>
       <div style="flex:1;min-width:0"><b id="ht"></b><small id="hs"></small></div><button id="cp" class="ib" aria-label="Позвонить" title="Позвонить" hidden>📞</button><button id="cv" class="ib" aria-label="Видеозвонок" title="Видеозвонок" hidden>🎥</button>
     </div>
+    <div id="pinb" hidden><span>📌</span><div id="pint"></div><button type="button" id="pinx" aria-label="Открепить">✕</button></div>
     <div id="msgs"></div>
     <div class="empty"><svg viewBox="0 0 40 40"><path d="M20 2l4 14 14 4-14 4-4 14-4-14L2 20l14-4z" fill="#FF6B4A"/><circle cx="20" cy="20" r="5" fill="#C6F25C"/></svg><h2>Выберите чат</h2><span>или найдите человека слева</span></div>
+    <div id="ctx" hidden><div><b id="ctxn"></b><span id="ctxx"></span></div><button type="button" id="ctxc" aria-label="Отмена">✕</button></div>
     <form id="mf">
       <textarea id="mt" rows="1" maxlength="2000" placeholder="Напишите сообщение…"></textarea>
       <button id="send" aria-label="Отправить"><svg viewBox="0 0 24 24" fill="#1D1628"><path d="M3 20l18-8L3 4v6l11 2-11 2z"/></svg></button>
@@ -158,6 +184,7 @@ const CFG = {
   </main>
 </div>
 
+<div class="modal" id="fw" hidden><div class="card"><h2>Переслать</h2><div id="fwl" style="display:grid;gap:6px;max-height:50vh;overflow:auto"></div><button type="button" class="lnk" id="fwc" style="color:var(--mute)">Отмена</button></div></div>
 <div class="ov" id="inc" hidden><div id="iav"></div><h2 id="in"></h2><p id="it"></p>
   <div class="crow" style="margin-top:24px"><button class="cb red" id="idec"><span>✖</span><small>Отклонить</small></button><button class="cb grn" id="iacc"><span>📞</span><small>Принять</small></button></div></div>
 <div class="ov" id="call" hidden>
@@ -174,6 +201,7 @@ const CFG = {
  <input id="pn" placeholder="Имя" maxlength="40">
  <div class="unw"><span>@</span><input id="pu" placeholder="username" maxlength="20" autocapitalize="none" autocomplete="off"></div>
  <small style="color:var(--mute)">Username: 3–20 символов, латиница, цифры и _. По нему тебя найдут другие.</small>
+ <button type="button" class="lnk" id="pnt" hidden>🔔 Включить уведомления</button>
  <div class="err" id="pe"></div>
  <button class="btn" id="ps">Сохранить</button>
  <div style="display:flex;justify-content:space-between"><button type="button" class="lnk" id="pc" style="color:var(--mute)">Закрыть</button><button type="button" class="lnk" id="po">Выйти из аккаунта</button></div>
@@ -181,7 +209,7 @@ const CFG = {
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signInWithCustomToken,signOut,GoogleAuthProvider,signInWithPopup,signInWithRedirect,setPersistence,browserLocalPersistence} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {getFirestore,collection,doc,getDoc,getDocs,setDoc,onSnapshot,query,orderBy,limit,limitToLast,where,serverTimestamp,writeBatch} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getFirestore,collection,doc,getDoc,getDocs,setDoc,onSnapshot,query,orderBy,limit,limitToLast,where,serverTimestamp,writeBatch,updateDoc,deleteDoc,deleteField} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 if("serviceWorker" in navigator){
   const had=!!navigator.serviceWorker.controller;
@@ -325,7 +353,7 @@ $("pig").onclick=()=>fill(srcs().g);$("pit").onclick=()=>fill(srcs().t);
 function openProfile(force){
   pPhoto=meDoc.photo||"";$("pt").textContent=force?"Завершим профиль":"Профиль";
   $("pn").value=meDoc.name==="Гость"?"":meDoc.name||"";$("pu").value=meDoc.username||"";$("pe").textContent="";$("pc").hidden=force;
-  const s=srcs();$("pig").hidden=!s.g;$("pit").hidden=!s.t;drawP();$("pm").hidden=false;
+  const s=srcs();$("pig").hidden=!s.g;$("pit").hidden=!s.t;$("pnt").hidden=!("Notification" in window)||Notification.permission==="granted";drawP();$("pm").hidden=false;
 }
 $("meb").onclick=()=>meDoc&&openProfile(false);
 $("pph").onclick=()=>pickPhoto(p=>{pPhoto=p;drawP()});
@@ -347,7 +375,7 @@ $("ps").onclick=async()=>{
 onAuthStateChanged(auth,async u=>{
   $("splash").hidden=true;
   unsubs.forEach(f=>f());unsubs=[];unsubMsgs&&unsubMsgs();unsubMsgs=null;
-  if(!u){clearInterval(hb);hb=null;presOn=false;marked.clear();unsubPeer&&unsubPeer();unsubPeer=null;tgProfile=null;draft={};me=meDoc=null;cur=peer=null;chats=[];found=null;lastDocs=[];cache.clear();
+  if(!u){clearInterval(hb);hb=null;presOn=false;marked.clear();chatsInit=false;lastMs.clear();unsubPeer&&unsubPeer();unsubPeer=null;tgProfile=null;draft={};me=meDoc=null;cur=peer=null;chats=[];found=null;lastDocs=[];cache.clear();
     $("app").hidden=true;$("pm").hidden=true;$("auth").hidden=false;$("app").classList.remove("open");$("chat").classList.add("idle");return}
   me=u;$("auth").hidden=true;$("app").hidden=false;
   const ref=doc(db,"users",u.uid);
@@ -369,7 +397,7 @@ onAuthStateChanged(auth,async u=>{
   },e=>toast(errText(e))));
   unsubs.push(onSnapshot(query(collection(db,"chats"),where("members","array-contains",u.uid)),s=>{
     chats=s.docs.map(d=>({id:d.id,...d.data()}));loadUsers(chats.map(c=>c.members.find(x=>x!==u.uid)));drawList();
-    if(cur&&lastDocs.length)renderMsgs(lastDocs,false);markDelivery();
+    notifyNew();if(cur&&lastDocs.length)renderMsgs(lastDocs,false);markDelivery();
   },e=>toast(errText(e))));
   listenCalls(u);
 });
@@ -452,10 +480,11 @@ async function showIncoming(id,d){
   const p=cache.get(d.from)||{uid:d.from,name:"Пользователь"};
   $("iav").replaceChildren(avatar(p,"lg"));$("in").textContent=p.name;$("it").textContent=d.video?"Входящий видеозвонок":"Входящий звонок";
   $("inc").hidden=false;ring(true);
+  if(document.visibilityState!=="visible")notify(p.name,d.video?"Входящий видеозвонок":"Входящий звонок","call",{requireInteraction:true,vibrate:[300,150,300]});
   incUnsub=onSnapshot(doc(db,"calls",id),s=>{if(!s.exists()||s.data().status!=="ringing")hideIncoming()},()=>{});
   incTimer=setTimeout(hideIncoming,45000);
 }
-function hideIncoming(){incoming=null;clearTimeout(incTimer);incUnsub&&incUnsub();incUnsub=null;$("inc").hidden=true;ring(false)}
+function hideIncoming(){incoming=null;clearTimeout(incTimer);incUnsub&&incUnsub();incUnsub=null;$("inc").hidden=true;ring(false);closeNotif("call")}
 $("idec").onclick=()=>{const d=incoming;hideIncoming();d&&setDoc(doc(db,"calls",d.id),{status:"declined"},{merge:true}).catch(()=>{})};
 $("iacc").onclick=async()=>{const d=incoming;hideIncoming();d&&await acceptCall(d)};
 $("cp").onclick=()=>startCall(false);$("cv").onclick=()=>startCall(true);
@@ -478,7 +507,7 @@ async function acceptCall(d){
   openCall({id:d.id,peer:cache.get(d.from)||{uid:d.from,name:"Пользователь"},polite:true,caller:false},stream,d.video);
 }
 function openCall(c,stream,video){
-  Object.assign(c,{n:0,local:stream,remote:new MediaStream(),making:false,ignore:false,mic:true,cam:!!video,scr:false,rs:{mic:true,vid:false,scr:false},q:Promise.resolve(),unsubs:[],t0:0,active:false,vtrack:null,vSender:null,lvT:null});
+  Object.assign(c,{n:0,local:stream,remote:new MediaStream(),making:false,ignore:false,mic:true,cam:!!video,scr:false,rs:{mic:true,vid:false,scr:false},q:Promise.resolve(),unsubs:[],t0:0,active:false,vtrack:null,vSender:null,lvT:null,wasVideo:!!video});
   call=c;
   const pc=c.pc=new RTCPeerConnection({iceServers:ICE});
   pc.onicecandidate=e=>{if(e.candidate)sigW(c,{type:"cand",d:JSON.stringify(e.candidate)})};
@@ -496,12 +525,12 @@ function openCall(c,stream,video){
   },()=>{}));
   c.unsubs.push(onSnapshot(doc(db,"calls",c.id),s=>{
     const st=s.exists()&&s.data().status;
-    if(st==="declined")endCall("Абонент отклонил звонок",false);
-    else if(st==="busy")endCall("Абонент занят",false);
-    else if(st==="ended"||st==="missed")endCall("Звонок завершён",false);
+    if(st==="declined")endCall("Абонент отклонил звонок",false,"declined");
+    else if(st==="busy")endCall("Абонент занят",false,"busy");
+    else if(st==="ended"||st==="missed")endCall("Звонок завершён",false,st);
     else if(st==="active"){c.active=true;updCall()}
   },()=>{}));
-  if(c.caller)c.noAns=setTimeout(()=>{if(call===c&&!c.active){setDoc(doc(db,"calls",c.id),{status:"missed"},{merge:true}).catch(()=>{});endCall("Нет ответа",false)}},45000);
+  if(c.caller)c.noAns=setTimeout(()=>{if(call===c&&!c.active){setDoc(doc(db,"calls",c.id),{status:"missed"},{merge:true}).catch(()=>{});endCall("Нет ответа",false,"missed")}},45000);
   $("cav").replaceChildren(avatar(c.peer,"lg"));$("cn").textContent=c.peer.name||"";
   $("rv").srcObject=c.remote;$("ra").srcObject=c.remote;$("call").hidden=false;
   c.tick=setInterval(updCall,1000);sendState(c);updCall();
@@ -530,8 +559,13 @@ function updCall(){
   $("bmic").classList.toggle("act",!c.mic);$("bmic").firstChild.textContent=c.mic?"🎙️":"🔇";
   $("bcam").classList.toggle("act",c.cam);$("bscr").classList.toggle("act",c.scr);
 }
-function endCall(msg,write){
+function recordCall(c,outcome){ // звонивший записывает итог звонка в переписку
+  const dur=c.t0?Math.round((Date.now()-c.t0)/1000):0,miss=["missed","busy","cancelled"].includes(outcome);
+  postMsg([me.uid,c.peer.uid].sort().join("_"),{type:"call",text:miss?"📞 Пропущенный звонок":"📞 Звонок",call:{st:outcome,dur,video:!!c.wasVideo}}).catch(()=>{});
+}
+function endCall(msg,write,outcome){
   const c=call;if(!c)return;call=null;
+  if(c.caller){const oc=outcome||(write?(c.active?"ended":"cancelled"):null);if(oc)recordCall(c,oc==="ended"&&!c.active?"cancelled":oc)}
   if(write)setDoc(doc(db,"calls",c.id),{status:"ended"},{merge:true}).catch(()=>{});
   clearTimeout(c.noAns);clearInterval(c.tick);c.unsubs.forEach(f=>f());
   try{c.pc.close()}catch{}
@@ -572,6 +606,124 @@ $("bscr").onclick=async()=>{
 };
 addEventListener("pagehide",()=>{if(call)setDoc(doc(db,"calls",call.id),{status:"ended"},{merge:true}).catch(()=>{})});
 
+/* ---------- уведомления ---------- */
+const canNotif=()=>"Notification" in window&&Notification.permission==="granted";
+async function notify(title,body,tag,extra){
+  if(!canNotif())return;
+  try{
+    const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration(),opt={body,tag,icon:"icon-192.png",badge:"icon-192.png",renotify:true,...extra};
+    if(reg)reg.showNotification(title,opt);else new Notification(title,opt);
+  }catch{}
+}
+async function closeNotif(tag){try{const reg=await navigator.serviceWorker.getRegistration();reg&&(await reg.getNotifications({tag})).forEach(n=>n.close())}catch{}}
+async function askNotif(){
+  if(!("Notification" in window)){toast("Этот браузер не поддерживает уведомления.");return}
+  const r=await Notification.requestPermission();
+  toast(r==="granted"?"Уведомления включены":"Уведомления не разрешены. Их можно включить в настройках браузера для этого сайта.");
+  $("pnt").hidden=true;drawList();
+}
+$("pnt").onclick=askNotif;
+const lastMs=new Map();let chatsInit=false;
+function notifyNew(){
+  for(const c of chats){
+    const la=tms(c.lastAt),prev=lastMs.get(c.id)||0;
+    if(chatsInit&&c.lastFrom&&c.lastFrom!==me.uid&&la>prev&&(document.visibilityState!=="visible"||c.id!==cur)){
+      const o=cache.get(c.members.find(x=>x!==me.uid)),txt=c.lastText||"Новое сообщение";
+      if(document.visibilityState==="visible")toast((o?o.name+": ":"")+txt);else notify(o?o.name:"NovaChat",txt,c.id);
+    }
+    if(la)lastMs.set(c.id,la);
+  }
+  chatsInit=true;
+}
+
+/* ---------- меню сообщения, ответы, пересылка, закреп, правка ---------- */
+const QUICK=["❤️","👍","👎","🔥","🥰","👏","😁"],MORE=["😂","😮","😢","🙏","🎉","🤔","🤝","😡","👀","💯","😍","🤣","😎","🥳","😭","🤯","👌","💔","😴","🫡"];
+let replyTo=null,editing=null;
+const hidden=new Set(JSON.parse(localStorage.getItem("nc_hidden")||"[]"));
+const hideMsg=id=>{hidden.add(id);try{localStorage.setItem("nc_hidden",JSON.stringify([...hidden].slice(-500)))}catch{}};
+function showCtx(t,x){$("ctxn").textContent=t;$("ctxx").textContent=x;$("ctx").hidden=false}
+function clearCtx(){if(editing){$("mt").value="";$("mt").style.height="auto"}replyTo=editing=null;$("ctx").hidden=true}
+$("ctxc").onclick=clearCtx;
+function startReply(id,name,text){editing=null;replyTo={id,name,text:text.slice(0,100)};showCtx("↩ Ответ: "+name,replyTo.text);$("mt").focus()}
+function startEdit(id,text){replyTo=null;editing={id};showCtx("✏️ Редактирование",text.slice(0,100));$("mt").value=text;$("mt").dispatchEvent(new Event("input"));$("mt").focus()}
+async function copyText(t){
+  try{await navigator.clipboard.writeText(t);toast("Скопировано")}
+  catch{const a=document.createElement("textarea");a.value=t;document.body.append(a);a.select();try{document.execCommand("copy");toast("Скопировано")}catch{toast("Не удалось скопировать")}a.remove()}
+}
+function react(d,e){
+  const mr=d.data().reactions||{};
+  updateDoc(d.ref,{["reactions."+me.uid]:mr[me.uid]===e?deleteField():e}).catch(x=>toast(errText(x)));
+}
+function delMsg(d,mine){
+  if(mine){if(confirm("Удалить сообщение у всех?"))deleteDoc(d.ref).catch(x=>toast(errText(x)))}
+  else{hideMsg(d.id);renderMsgs(lastDocs,false)}
+}
+function pinMsg(id,text,name){setDoc(doc(db,"chats",cur),{pin:{id,text:text.slice(0,100),name}},{merge:true}).catch(x=>toast(errText(x)))}
+function unpin(){updateDoc(doc(db,"chats",cur),{pin:deleteField()}).catch(x=>toast(errText(x)))}
+$("pinx").onclick=e=>{e.stopPropagation();unpin()};
+$("pinb").onclick=()=>{const p=(chats.find(c=>c.id===cur)||{}).pin;p&&jumpTo(p.id)};
+function renderPin(meta){const p=meta&&meta.pin;$("pinb").hidden=!p;if(p)$("pint").textContent=p.name+": "+p.text}
+function jumpTo(id){
+  const el=$("msgs").querySelector(`[data-id="${id}"]`);
+  if(el){el.scrollIntoView({block:"center",behavior:"smooth"});el.classList.add("flash");setTimeout(()=>el.classList.remove("flash"),1300)}
+}
+function openForward(m,sender){
+  const l=$("fwl");l.textContent="";
+  const add=(p,id)=>{
+    const b=document.createElement("button"),t=document.createElement("div"),n=document.createElement("b");
+    b.className="item";n.textContent=p.name||"…";t.append(n);b.append(avatar(p),t);
+    b.onclick=async()=>{$("fw").hidden=true;try{await postMsg(id,{text:m.text,fwd:m.fwd||sender});toast("Переслано")}catch(x){toast(errText(x))}};
+    l.append(b);
+  };
+  add(GLOBAL,"global");
+  chats.forEach(c=>{const o=c.members.find(x=>x!==me.uid);add(cache.get(o)||{uid:o,name:"…"},c.id)});
+  $("fw").hidden=false;
+}
+$("fwc").onclick=()=>{$("fw").hidden=true};
+function closeMenu(){const m=$("mm");m&&m.remove()}
+addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()});
+function openMsgMenu(el,d){
+  if($("mm"))return;
+  const m=d.data({serverTimestamps:"estimate"}),mine=m.from===me.uid,priv=cur!=="global",sender=(cache.get(m.from)||{}).name||"Пользователь";
+  let ready=false;setTimeout(()=>{ready=true},350); // чтобы палец после долгого нажатия не закрыл меню
+  const ov=document.createElement("div");ov.id="mm";ov.onclick=e=>{if(ready&&e.target===ov)closeMenu()};
+  const box=document.createElement("div");box.className="mmc";
+  const rb=document.createElement("div"),grid=document.createElement("div");rb.className="rbar";
+  grid.className="rgrid";grid.hidden=true;
+  const pick=e=>{if(!ready)return;closeMenu();react(d,e)};
+  const eb=(e,host)=>{const b=document.createElement("button");b.textContent=e;b.onclick=()=>pick(e);host.append(b)};
+  QUICK.forEach(e=>eb(e,rb));MORE.forEach(e=>eb(e,grid));
+  const mb=document.createElement("button");mb.className="rmore";mb.textContent="⌄";mb.onclick=()=>{grid.hidden=!grid.hidden;place()};rb.append(mb);
+  const list=document.createElement("div");list.className="mlist";
+  const add=(ic,t,fn,danger)=>{
+    const b=document.createElement("button"),i=document.createElement("span"),x=document.createElement("span");
+    i.textContent=ic;x.textContent=t;b.append(i,x);if(danger)b.className="dng";
+    b.onclick=()=>{if(!ready)return;closeMenu();fn()};list.append(b);
+  };
+  add("↩️","Ответить",()=>startReply(d.id,sender,m.text));
+  add("📋","Копировать",()=>copyText(m.text));
+  add("➡️","Переслать",()=>openForward(m,sender));
+  if(priv){const pn=(chats.find(c=>c.id===cur)||{}).pin;if(pn&&pn.id===d.id)add("📌","Открепить",unpin);else add("📌","Закрепить",()=>pinMsg(d.id,m.text,sender))}
+  if(mine)add("✏️","Изменить",()=>startEdit(d.id,m.text));
+  add("🗑️",mine?"Удалить":"Удалить у меня",()=>delMsg(d,mine),true);
+  box.append(rb,grid,list);ov.append(box);document.body.append(ov);
+  function place(){
+    const r=el.getBoundingClientRect(),vw=document.documentElement.clientWidth,vh=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--vh"))||innerHeight;
+    const bw=box.offsetWidth,bh=box.offsetHeight;
+    let left=mine?r.right-bw:r.left;left=Math.max(8,Math.min(left,vw-bw-8));
+    let top=r.bottom+8;if(top+bh>vh-8)top=r.top-bh-8;if(top<8)top=Math.max(8,vh-bh-8);
+    box.style.left=left+"px";box.style.top=top+"px";
+  }
+  place();
+}
+function bindMenu(el,d){ // долгое нажатие на телефоне, правая кнопка мыши на компьютере
+  let t=null,sx=0,sy=0;
+  el.addEventListener("touchstart",e=>{const p=e.touches[0];sx=p.clientX;sy=p.clientY;t=setTimeout(()=>{t=null;openMsgMenu(el,d)},420)},{passive:true});
+  el.addEventListener("touchmove",e=>{const p=e.touches[0];if(t&&(Math.abs(p.clientX-sx)>10||Math.abs(p.clientY-sy)>10)){clearTimeout(t);t=null}},{passive:true});
+  ["touchend","touchcancel"].forEach(ev=>el.addEventListener(ev,()=>{clearTimeout(t);t=null}));
+  el.addEventListener("contextmenu",e=>{e.preventDefault();openMsgMenu(el,d)});
+}
+
 /* ---------- список чатов и поиск ---------- */
 const chatId=p=>p.uid==="global"?"global":[me.uid,p.uid].sort().join("_");
 const ms=c=>c.lastAt&&c.lastAt.toMillis?c.lastAt.toMillis():Date.now();
@@ -585,7 +737,9 @@ function item(p,sub,id,dot){
 function drawList(){
   if(!me)return;$("list").textContent="";
   if(found){sec("Результаты поиска");if(!found.length)note("Никого не нашли. Ищи по @username или имени.");found.forEach(u=>item(u,"@"+u.username,chatId(u)));return}
-  item(GLOBAL,"Все участники","global");sec("Личные чаты");
+  item(GLOBAL,"Все участники","global");
+  if("Notification" in window&&Notification.permission==="default"){const nb=document.createElement("button");nb.className="nbn";nb.textContent="🔔 Включить уведомления";nb.onclick=askNotif;$("list").append(nb)}
+  sec("Личные чаты");
   if(!chats.length)note("Пока пусто. Найди человека по @username в поиске выше и напиши ему.");
   [...chats].sort((a,b)=>ms(b)-ms(a)).forEach(c=>{
     const o=c.members.find(x=>x!==me.uid),p=cache.get(o)||{uid:o,name:"…"};
@@ -612,7 +766,7 @@ function refreshHead(){
 function openChat(p){
   cache.set(p.uid,p.uid==="global"?cache.get("global")||GLOBAL:p);
   const wasOpen=$("app").classList.contains("open");
-  peer=p;cur=chatId(p);unsubMsgs&&unsubMsgs();$("msgs").textContent="";lastDocs=[];shown.clear();tickSt.clear();
+  clearCtx();peer=p;cur=chatId(p);unsubMsgs&&unsubMsgs();$("msgs").textContent="";lastDocs=[];shown.clear();tickSt.clear();
   unsubPeer&&unsubPeer();unsubPeer=null;
   if(p.uid!=="global")unsubPeer=onSnapshot(doc(db,"users",p.uid),s=>{if(s.exists()&&peer&&peer.uid===p.uid){cache.set(p.uid,{uid:p.uid,...s.data()});refreshHead()}},()=>{});
   $("q").value="";found=null;
@@ -624,47 +778,84 @@ function openChat(p){
   },e=>toast(errText(e)));
   markDelivery();if(innerWidth>780)$("mt").focus();
 }
-function closeChat(){unsubMsgs&&unsubMsgs();unsubMsgs=null;unsubPeer&&unsubPeer();unsubPeer=null;cur=peer=null;lastDocs=[];$("app").classList.remove("open");$("chat").classList.add("idle");drawList()}
+function closeChat(){clearCtx();$("pinb").hidden=true;unsubMsgs&&unsubMsgs();unsubMsgs=null;unsubPeer&&unsubPeer();unsubPeer=null;cur=peer=null;lastDocs=[];$("app").classList.remove("open");$("chat").classList.add("idle");drawList()}
 $("back").onclick=()=>history.state&&history.state.c?history.back():closeChat();
 addEventListener("popstate",closeChat);
 
 const fmt=d=>d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
-const shown=new Set(),tickSt=new Map(); // id сообщений, которые уже показаны: анимация только у новых
+const shown=new Set(),tickSt=new Map();
+const durTxt=n=>n<60?n+" сек.":Math.round(n/60)+" мин.";
+function callCard(m,mine,t,pu){ // запись о звонке в переписке
+  const c=m.call||{},bad=c.st&&c.st!=="ended";let title;
+  if(mine)title=c.st==="declined"?"Звонок отклонён":c.st==="cancelled"?"Отменённый звонок":c.st==="missed"?"Нет ответа":c.st==="busy"?"Абонент занят":"Исходящий звонок";
+  else title=c.st==="declined"?"Отклонённый звонок":["missed","busy","cancelled"].includes(c.st)?"Пропущенный звонок":"Входящий звонок";
+  const b=document.createElement("div"),ic=document.createElement("span"),tx=document.createElement("div"),h=document.createElement("b"),sm=document.createElement("small");
+  b.className="b callb";ic.className="ci"+(bad?" bad":"");ic.textContent=mine?"↗":"↙";
+  h.textContent=(c.video?"🎥 ":"")+title;sm.textContent=fmt(t)+(c.dur>0?", "+durTxt(c.dur):"");
+  tx.append(h,sm);b.append(ic,tx);
+  if(pu){const cb=document.createElement("button");cb.className="ib";cb.textContent=c.video?"🎥":"📞";cb.onclick=()=>startCall(!!c.video);b.append(cb)}
+  return b;
+}
 function renderMsgs(docs,first){
   const box=$("msgs"),stick=first||box.scrollHeight-box.scrollTop-box.clientHeight<140;
   box.textContent="";let day="";
   const meta=chats.find(c=>c.id===cur)||{},pu=cur&&cur!=="global"?cur.split("_").find(x=>x!==me.uid):null;
+  renderPin(meta);
   for(const d of docs){
+    if(hidden.has(d.id))continue;
     const m=d.data({serverTimestamps:"estimate"}),t=m.createdAt?m.createdAt.toDate():new Date();
     const ds=t.toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
     if(ds!==day){day=ds;const x=document.createElement("div");x.className="day";x.textContent=ds;box.append(x)}
-    const mine=m.from===me.uid,row=document.createElement("div");row.className="row "+(mine?"me":"ot")+(!first&&!shown.has(d.id)?" fresh":"");shown.add(d.id);
+    const mine=m.from===me.uid,row=document.createElement("div");
+    row.className="row "+(mine?"me":"ot")+(!first&&!shown.has(d.id)?" fresh":"");row.dataset.id=d.id;shown.add(d.id);
     const u=cache.get(m.from)||{uid:m.from,name:"Пользователь"};
-    if(!mine&&cur==="global")row.append(avatar(u,"sm"));
+    if(!mine&&cur==="global"&&m.type!=="call")row.append(avatar(u,"sm"));
+    if(m.type==="call"){row.append(callCard(m,mine,t,pu));box.append(row);continue}
     const b=document.createElement("div");b.className="b";
     if(!mine&&cur==="global"){const n=document.createElement("span");n.className="n";n.textContent=u.name;b.append(n)}
+    if(m.fwd){const f=document.createElement("div");f.className="fw";f.textContent="↪ Переслано от "+m.fwd;b.append(f)}
+    if(m.reply){
+      const q=document.createElement("div"),qn=document.createElement("b"),qt=document.createElement("span");
+      q.className="rq";qn.textContent=m.reply.name;qt.textContent=m.reply.text;q.append(qn,qt);
+      q.onclick=ev=>{ev.stopPropagation();jumpTo(m.reply.id)};b.append(q);
+    }
     const tx=document.createElement("span");tx.textContent=m.text;   // только textContent — защита от XSS
-    const tm=document.createElement("time");tm.textContent=fmt(t);
+    b.append(tx);
+    const cnt={};Object.values(m.reactions||{}).forEach(e=>{cnt[e]=(cnt[e]||0)+1});
+    if(Object.keys(cnt).length){
+      const rx=document.createElement("div");rx.className="rx";
+      for(const [e,n] of Object.entries(cnt)){
+        const c=document.createElement("button");c.className="rc"+(m.reactions[me.uid]===e?" me":"");c.textContent=e+(n>1?" "+n:"");
+        c.onclick=ev=>{ev.stopPropagation();react(d,e)};rx.append(c);
+      }
+      b.append(rx);
+    }
+    const tm=document.createElement("time");tm.textContent=(m.edited?"изм. ":"")+fmt(t);
     if(mine&&pu){
       let st="s";
       if(d.metadata.hasPendingWrites)st="p";else if(tms(meta.seen&&meta.seen[pu])>=t.getTime())st="r";else if(tms(meta.got&&meta.got[pu])>=t.getTime())st="d";
-      const tk=document.createElement("span"),prev=tickSt.get(d.id);tickSt.set(d.id,st);tk.className="tk"+(st==="r"?" r":"")+(prev&&prev!==st?" chg":"");tk.textContent=st==="p"?"○":st==="s"?"✓":"✓✓";tm.append(tk);
+      const tk=document.createElement("span"),prev=tickSt.get(d.id);tickSt.set(d.id,st);
+      tk.className="tk"+(st==="r"?" r":"")+(prev&&prev!==st?" chg":"");tk.textContent=st==="p"?"○":st==="s"?"✓":"✓✓";tm.append(tk);
     }
-    b.append(tx,tm);row.append(b);box.append(row);
+    b.append(tm);bindMenu(b,d);row.append(b);box.append(row);
   }
   if(stick)box.scrollTop=box.scrollHeight;
 }
 const mt=$("mt");
 mt.oninput=()=>{mt.style.height="auto";mt.style.height=Math.min(mt.scrollHeight,120)+"px"};
 mt.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey&&innerWidth>780){e.preventDefault();$("mf").requestSubmit()}};
+async function postMsg(id,o){
+  const b=writeBatch(db);
+  b.set(doc(collection(db,"chats",id,"messages")),{from:me.uid,createdAt:serverTimestamp(),...o});
+  if(id!=="global")b.set(doc(db,"chats",id),{members:id.split("_"),lastText:o.text.slice(0,120),lastFrom:me.uid,lastAt:serverTimestamp(),seen:{[me.uid]:serverTimestamp()}},{merge:true});
+  await b.commit();
+}
 $("mf").onsubmit=async e=>{
   e.preventDefault();const text=mt.value.trim();if(!text||!cur)return;
-  mt.value="";mt.style.height="auto";
+  const ed=editing,rp=replyTo;mt.value="";mt.style.height="auto";replyTo=editing=null;$("ctx").hidden=true;
   try{
-    const b=writeBatch(db);
-    b.set(doc(collection(db,"chats",cur,"messages")),{text,from:me.uid,createdAt:serverTimestamp()});
-    if(cur!=="global")b.set(doc(db,"chats",cur),{members:cur.split("_"),lastText:text.slice(0,120),lastFrom:me.uid,lastAt:serverTimestamp(),seen:{[me.uid]:serverTimestamp()}},{merge:true});
-    await b.commit();
+    if(ed)await updateDoc(doc(db,"chats",cur,"messages",ed.id),{text,edited:true});
+    else await postMsg(cur,rp?{text,reply:rp}:{text});
   }catch(x){mt.value=text;toast(errText(x))}
 };
 </script>
