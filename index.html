@@ -53,13 +53,14 @@ button{cursor:pointer;border:0;background:none}
 #msgs{flex:1;overflow:auto;padding:16px 14px;display:flex;flex-direction:column;gap:6px}
 .day{align-self:center;font-size:12px;color:var(--mute);background:var(--panel);padding:3px 12px;border-radius:99px;margin:8px 0}
 .row{display:flex;gap:8px;align-items:flex-end}.row.me{justify-content:flex-end}
-.b{max-width:min(78%,520px);padding:9px 14px 6px;animation:pop .25s cubic-bezier(.3,1.5,.5,1);word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap}
+.b{max-width:min(78%,520px);padding:9px 14px 6px;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap}
 .me .b{background:var(--own);color:var(--ownink);border-radius:24px 4px 24px 4px}
 .ot .b{background:var(--other);border-radius:4px 24px 4px 24px}
 .b .n{font-size:12px;font-weight:800;color:var(--acc);display:block}.b time{display:block;text-align:right;font-size:11px;margin-top:1px;color:color-mix(in srgb,currentColor 60%,transparent)}
 .tk{letter-spacing:-2px;margin-left:5px}.tk.r{color:#D83A17;font-weight:800}
 .dot{width:11px;height:11px;border-radius:50%;background:var(--acc);margin-left:auto;flex:none}
 #hs.on{color:#2FB37A;font-weight:700}
+.row.fresh .b{animation:pop .25s cubic-bezier(.3,1.5,.5,1)}
 @keyframes pop{from{opacity:0;transform:scale(.85) rotate(-2deg)}}
 form{display:flex;gap:10px;padding:10px 14px;padding-bottom:max(10px,env(safe-area-inset-bottom));background:var(--panel);border-top:2px solid var(--line);align-items:flex-end}
 textarea{flex:1;resize:none;max-height:120px;padding:11px 16px;border-radius:22px 6px 22px 22px;border:2px solid var(--line);background:var(--bg);outline:0}textarea:focus{border-color:var(--lil)}
@@ -433,7 +434,7 @@ function refreshHead(){
 function openChat(p){
   cache.set(p.uid,p.uid==="global"?cache.get("global")||GLOBAL:p);
   const wasOpen=$("app").classList.contains("open");
-  peer=p;cur=chatId(p);unsubMsgs&&unsubMsgs();$("msgs").textContent="";lastDocs=[];
+  peer=p;cur=chatId(p);unsubMsgs&&unsubMsgs();$("msgs").textContent="";lastDocs=[];shown.clear();
   unsubPeer&&unsubPeer();unsubPeer=null;
   if(p.uid!=="global")unsubPeer=onSnapshot(doc(db,"users",p.uid),s=>{if(s.exists()&&peer&&peer.uid===p.uid){cache.set(p.uid,{uid:p.uid,...s.data()});refreshHead()}},()=>{});
   $("q").value="";found=null;
@@ -450,6 +451,7 @@ $("back").onclick=()=>history.state&&history.state.c?history.back():closeChat();
 addEventListener("popstate",closeChat);
 
 const fmt=d=>d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+const shown=new Set(); // id сообщений, которые уже показаны: анимация только у новых
 function renderMsgs(docs,first){
   const box=$("msgs"),stick=first||box.scrollHeight-box.scrollTop-box.clientHeight<140;
   box.textContent="";let day="";
@@ -458,7 +460,7 @@ function renderMsgs(docs,first){
     const m=d.data({serverTimestamps:"estimate"}),t=m.createdAt?m.createdAt.toDate():new Date();
     const ds=t.toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
     if(ds!==day){day=ds;const x=document.createElement("div");x.className="day";x.textContent=ds;box.append(x)}
-    const mine=m.from===me.uid,row=document.createElement("div");row.className="row "+(mine?"me":"ot");
+    const mine=m.from===me.uid,row=document.createElement("div");row.className="row "+(mine?"me":"ot")+(!first&&!shown.has(d.id)?" fresh":"");shown.add(d.id);
     const u=cache.get(m.from)||{uid:m.from,name:"Пользователь"};
     if(!mine&&cur==="global")row.append(avatar(u,"sm"));
     const b=document.createElement("div");b.className="b";
