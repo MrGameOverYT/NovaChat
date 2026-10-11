@@ -168,13 +168,16 @@ const $=id=>document.getElementById(id);
 const vv=window.visualViewport;
 function fit(){
   const box=$("msgs"),near=box.scrollHeight-box.scrollTop-box.clientHeight<200;
-  document.documentElement.style.setProperty("--vh",(vv?vv.height:innerHeight)+"px");
+  const h=Math.min(vv?vv.height:Infinity,innerHeight,document.documentElement.clientHeight||Infinity);
+  document.documentElement.style.setProperty("--vh",h+"px");
   document.body.style.transform=vv&&vv.offsetTop?`translateY(${vv.offsetTop}px)`:"";
   if(!vv||!vv.offsetTop)window.scrollTo(0,0);
   if(near)box.scrollTop=box.scrollHeight;
 }
 if(vv){vv.addEventListener("resize",fit);vv.addEventListener("scroll",fit)}
 addEventListener("resize",fit);fit();
+addEventListener("focusin",()=>{setTimeout(fit,120);setTimeout(fit,400)});
+addEventListener("focusout",()=>setTimeout(fit,200));
 const COLORS=["#FF6B4A","#C6F25C","#B79CFF","#FFC857","#7DE2C3","#FF8FB1"];
 const colorOf=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]};
 const UN_RE=/^[a-z0-9_]{3,20}$/,UN_MSG="Username: 3–20 символов, только латиница, цифры и _.";
