@@ -130,7 +130,8 @@ const CFG = {
     apiKey: "AIzaSyCYArT1thXOiZUtcU0kff5_5JqtGZQecMg",
     authDomain: "novachat-d1749.firebaseapp.com",
     projectId: "novachat-d1749",
-    appId: "1:872918771963:web:05e7e7773a70664baf285e"
+    appId: "1:872918771963:web:05e7e7773a70664baf285e",
+    messagingSenderId: "872918771963"
   },
   botName: "NovaChatAuthBot",                // имя бота из @BotFather БЕЗ @, например "NovaChatLoginBot"
   workerUrl: "https://novachat.townhip-mos.workers.dev"               // адрес Cloudflare Worker, например "https://novachat.имя.workers.dev"
@@ -209,7 +210,8 @@ const CFG = {
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signInWithCustomToken,signOut,GoogleAuthProvider,signInWithPopup,signInWithRedirect,setPersistence,browserLocalPersistence} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {getFirestore,collection,doc,getDoc,getDocs,setDoc,onSnapshot,query,orderBy,limit,limitToLast,where,serverTimestamp,writeBatch,updateDoc,deleteDoc,deleteField} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getFirestore,collection,doc,getDoc,getDocs,setDoc,onSnapshot,query,orderBy,limit,limitToLast,where,serverTimestamp,writeBatch,updateDoc,deleteDoc,deleteField,arrayUnion,arrayRemove} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {getMessaging,getToken,isSupported} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
 if("serviceWorker" in navigator){
   const had=!!navigator.serviceWorker.controller;
@@ -359,7 +361,7 @@ $("meb").onclick=()=>meDoc&&openProfile(false);
 $("pph").onclick=()=>pickPhoto(p=>{pPhoto=p;drawP()});
 $("ppr").onclick=()=>{pPhoto="";drawP()};$("pn").oninput=drawP;
 $("pc").onclick=()=>{$("pm").hidden=true};
-$("po").onclick=async()=>{$("pm").hidden=true;if(call)endCall("",true);stopHb();await setPresence(false);signOut(auth)};
+$("po").onclick=async()=>{$("pm").hidden=true;if(call)endCall("",true);stopHb();await setPresence(false);await unregisterPush();signOut(auth)};
 $("ps").onclick=async()=>{
   const name=$("pn").value.trim(),un=$("pu").value.trim().toLowerCase().replace(/^@/,"");$("pe").textContent="";
   if(!name){$("pe").textContent="Введите имя.";return}
@@ -375,7 +377,7 @@ $("ps").onclick=async()=>{
 onAuthStateChanged(auth,async u=>{
   $("splash").hidden=true;
   unsubs.forEach(f=>f());unsubs=[];unsubMsgs&&unsubMsgs();unsubMsgs=null;
-  if(!u){clearInterval(hb);hb=null;presOn=false;marked.clear();chatsInit=false;lastMs.clear();unsubPeer&&unsubPeer();unsubPeer=null;tgProfile=null;draft={};me=meDoc=null;cur=peer=null;chats=[];found=null;lastDocs=[];cache.clear();
+  if(!u){clearInterval(hb);hb=null;presOn=false;marked.clear();chatsInit=false;lastMs.clear();pushDone=false;fcmToken=null;unsubPeer&&unsubPeer();unsubPeer=null;tgProfile=null;draft={};me=meDoc=null;cur=peer=null;chats=[];found=null;lastDocs=[];cache.clear();
     $("app").hidden=true;$("pm").hidden=true;$("auth").hidden=false;$("app").classList.remove("open");$("chat").classList.add("idle");return}
   me=u;$("auth").hidden=true;$("app").hidden=false;
   const ref=doc(db,"users",u.uid);
@@ -393,7 +395,7 @@ onAuthStateChanged(auth,async u=>{
     meDoc=s.exists()?{uid:u.uid,...s.data()}:{uid:u.uid,name:draft.name||"",photo:draft.photo||"",color:colorOf(u.uid),_new:true};
     cache.set(u.uid,meDoc);drawMe();
     if(!meDoc.username&&$("pm").hidden)openProfile(true);redraw();
-    if(meDoc.username&&!presOn){presOn=true;startPresence()}
+    if(meDoc.username&&!presOn){presOn=true;startPresence();if(canNotif())registerPush()}
   },e=>toast(errText(e))));
   unsubs.push(onSnapshot(query(collection(db,"chats"),where("members","array-contains",u.uid)),s=>{
     chats=s.docs.map(d=>({id:d.id,...d.data()}));loadUsers(chats.map(c=>c.members.find(x=>x!==u.uid)));drawList();
@@ -480,9 +482,10 @@ async function showIncoming(id,d){
   const p=cache.get(d.from)||{uid:d.from,name:"Пользователь"};
   $("iav").replaceChildren(avatar(p,"lg"));$("in").textContent=p.name;$("it").textContent=d.video?"Входящий видеозвонок":"Входящий звонок";
   $("inc").hidden=false;ring(true);
-  if(document.visibilityState!=="visible")notify(p.name,d.video?"Входящий видеозвонок":"Входящий звонок","call",{requireInteraction:true,vibrate:[300,150,300]});
+  if(document.visibilityState!=="visible")notify("📞 Входящий звонок",`${p.name} · ${d.video?"видеозвонок":"голосовой звонок"}`,"call",{icon:avatarIcon(p),requireInteraction:true,vibrate:[400,200,400,200,400],actions:[{action:"accept",title:"✅ Принять"},{action:"decline",title:"❌ Отклонить"}],data:{kind:"call",id}});
   incUnsub=onSnapshot(doc(db,"calls",id),s=>{if(!s.exists()||s.data().status!=="ringing")hideIncoming()},()=>{});
   incTimer=setTimeout(hideIncoming,45000);
+  if(autoAcc===id){autoAcc=null;setTimeout(()=>$("iacc").click(),300)}
 }
 function hideIncoming(){incoming=null;clearTimeout(incTimer);incUnsub&&incUnsub();incUnsub=null;$("inc").hidden=true;ring(false);closeNotif("call")}
 $("idec").onclick=()=>{const d=incoming;hideIncoming();d&&setDoc(doc(db,"calls",d.id),{status:"declined"},{merge:true}).catch(()=>{})};
@@ -496,6 +499,7 @@ async function startCall(video){
   const ref=doc(collection(db,"calls"));
   try{await setDoc(ref,{from:me.uid,to,status:"ringing",video:!!video,createdAt:serverTimestamp()})}
   catch(x){stream.getTracks().forEach(t=>t.stop());toast(errText(x));return}
+  pushNotify({type:"call",id:ref.id});
   openCall({id:ref.id,peer:cache.get(to)||peer,polite:false,caller:true},stream,video);
 }
 async function acceptCall(d){
@@ -609,9 +613,9 @@ addEventListener("pagehide",()=>{if(call)setDoc(doc(db,"calls",call.id),{status:
 /* ---------- уведомления ---------- */
 const canNotif=()=>"Notification" in window&&Notification.permission==="granted";
 async function notify(title,body,tag,extra){
-  if(!canNotif())return;
+  if(!canNotif()||fcmToken)return; // если включён push, уведомления показывает сервис-воркер
   try{
-    const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration(),opt={body,tag,icon:"icon-192.png",badge:"icon-192.png",renotify:true,...extra};
+    const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration(),opt={body,tag,icon:"icon-192.png",badge:"badge-96.png",renotify:true,...extra};
     if(reg)reg.showNotification(title,opt);else new Notification(title,opt);
   }catch{}
 }
@@ -620,9 +624,47 @@ async function askNotif(){
   if(!("Notification" in window)){toast("Этот браузер не поддерживает уведомления.");return}
   const r=await Notification.requestPermission();
   toast(r==="granted"?"Уведомления включены":"Уведомления не разрешены. Их можно включить в настройках браузера для этого сайта.");
-  $("pnt").hidden=true;drawList();
+  $("pnt").hidden=true;drawList();if(r==="granted")registerPush();
 }
 $("pnt").onclick=askNotif;
+let fcmToken=null,pushDone=false,autoAcc=new URLSearchParams(location.search).get("acc");
+if(autoAcc)history.replaceState(null,"",location.pathname);
+if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",e=>{
+  if(e.data&&e.data.kind==="acc"){autoAcc=e.data.id;if(incoming&&incoming.id===autoAcc){autoAcc=null;$("iacc").click()}}
+});
+function avatarIcon(p){ // картинка собеседника для уведомления
+  if(p.photo&&(p.photo.startsWith("https://")||p.photo.startsWith("data:image")))return p.photo;
+  try{
+    const c=document.createElement("canvas");c.width=c.height=192;const x=c.getContext("2d");
+    x.fillStyle=p.color||colorOf(p.uid||"x");x.fillRect(0,0,192,192);
+    x.fillStyle="#1D1628";x.font="700 100px sans-serif";x.textAlign="center";x.textBaseline="middle";
+    x.fillText((p.name||"?").trim().charAt(0).toUpperCase()||"?",96,104);
+    return c.toDataURL("image/png");
+  }catch{return "icon-192.png"}
+}
+/* push через Firebase Cloud Messaging: работает, даже когда приложение закрыто */
+async function registerPush(){
+  if(pushDone||!me||!canNotif()||!CFG.workerUrl||!("serviceWorker" in navigator))return;
+  pushDone=true;
+  try{
+    if(!(await isSupported()))return;
+    const cfg=await (await fetch(CFG.workerUrl+"/config")).json();if(!cfg.vapidKey)return;
+    const reg=await navigator.serviceWorker.ready;
+    const tk=await getToken(getMessaging(app),{vapidKey:cfg.vapidKey,serviceWorkerRegistration:reg});
+    if(tk){await setDoc(doc(db,"fcm",me.uid),{tokens:arrayUnion(tk),updatedAt:serverTimestamp()},{merge:true});fcmToken=tk}
+  }catch(x){pushDone=false;console.warn("push:",x)}
+}
+async function unregisterPush(){
+  if(fcmToken&&me){try{await updateDoc(doc(db,"fcm",me.uid),{tokens:arrayRemove(fcmToken)})}catch{}}
+  fcmToken=null;pushDone=false;
+}
+async function pushNotify(body){ // просим Worker разослать push собеседнику
+  if(!CFG.workerUrl||!me)return;
+  try{
+    const tok=await me.getIdToken();
+    fetch(CFG.workerUrl+"/push",{method:"POST",headers:{Authorization:"Bearer "+tok,"Content-Type":"application/json"},body:JSON.stringify(body)}).catch(()=>{});
+  }catch{}
+}
 const lastMs=new Map();let chatsInit=false;
 function notifyNew(){
   for(const c of chats){
@@ -849,6 +891,7 @@ async function postMsg(id,o){
   b.set(doc(collection(db,"chats",id,"messages")),{from:me.uid,createdAt:serverTimestamp(),...o});
   if(id!=="global")b.set(doc(db,"chats",id),{members:id.split("_"),lastText:o.text.slice(0,120),lastFrom:me.uid,lastAt:serverTimestamp(),seen:{[me.uid]:serverTimestamp()}},{merge:true});
   await b.commit();
+  if(id!=="global")pushNotify({type:"msg",chat:id});
 }
 $("mf").onsubmit=async e=>{
   e.preventDefault();const text=mt.value.trim();if(!text||!cur)return;
