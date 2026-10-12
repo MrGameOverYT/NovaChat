@@ -1,0 +1,9 @@
+{
+  "appId": "com.novachat.app",
+  "appName": "NovaChat",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": false
+  }
+}

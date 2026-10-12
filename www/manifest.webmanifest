@@ -1,0 +1,24 @@
+{
+ "name": "NovaChat",
+ "short_name": "NovaChat",
+ "lang": "ru",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#130F1B",
+ "theme_color": "#1D1628",
+ "icons": [
+  {
+   "src": "icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any maskable"
+  },
+  {
+   "src": "icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any maskable"
+  }
+ ]
+}
