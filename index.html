@@ -760,12 +760,17 @@ async function startCircle(){
   draw();$("cm").hidden=false;
 }
 async function flipCamera(){
-  const r=rec;if(!r||r.kind!=="circle")return;
-  try{
-    const front=!r.front,ns=await navigator.mediaDevices.getUserMedia(r.vc(front?"user":"environment")),old=r.v.srcObject;
-    r.v.srcObject=ns;r.streams.push(ns);old.getVideoTracks().forEach(t=>t.stop());r.front=front;
-    $("ccv").style.transform=front?"scaleX(-1)":"";await r.v.play().catch(()=>{});
-  }catch{toast("Не удалось переключить камеру.")}
+  const r=rec;if(!r||r.kind!=="circle"||r.flipping)return;r.flipping=true;
+  const old=r.v.srcObject,want=!r.front;
+  old.getVideoTracks().forEach(t=>t.stop()); // на многих телефонах вторую камеру можно открыть, только освободив первую
+  let ns=null;
+  for(const f of [want,!want]){ // если новая камера не открылась, возвращаем прежнюю
+    try{ns=await navigator.mediaDevices.getUserMedia(r.vc(f?"user":"environment"));r.front=f;break}catch{}
+  }
+  r.flipping=false;
+  if(!ns){toast("Камера недоступна. Запись остановлена.");finishRec(true);return}
+  if(r.front!==want)toast("Не удалось переключить камеру.");
+  r.v.srcObject=ns;r.streams.push(ns);$("ccv").style.transform=r.front?"scaleX(-1)":"";await r.v.play().catch(()=>{});
 }
 function makeWave(lv){
   const n=40,out=[];
@@ -808,7 +813,12 @@ async function togglePlay(m,kind){
   if(pl.mid===m.mid){if(el.paused)el.play().catch(()=>{});else el.pause();return}
   stopPlayer();
   try{const url=await getMedia(cur,m);pl.mid=m.mid;pl.kind=kind;el.src=url;el.playbackRate=pl.rate;updAll();await el.play()}
-  catch(x){pl.mid=null;updAll();if(x&&x.name!=="AbortError")toast(errText(x))}
+  catch(x){
+    pl.mid=null;updAll();
+    if(x&&x.name==="NotAllowedError")toast("Нажми на сообщение ещё раз, чтобы запустить.");
+    else if(x&&x.name==="NotSupportedError")toast("Этот браузер не умеет воспроизводить такую запись.");
+    else if(x&&x.name!=="AbortError")toast(errText(x));
+  }
 }
 function stopPlayer(){aud.pause();vid.pause();vid.remove();pl.mid=null;updAll()}
 function cycleRate(){pl.rate=pl.rate===1?1.5:pl.rate===1.5?2:1;aud.playbackRate=pl.rate;vid.playbackRate=pl.rate;updAll()}
@@ -830,6 +840,7 @@ function updAll(){
 for(const el of [aud,vid]){
   ["timeupdate","play","pause"].forEach(ev=>el.addEventListener(ev,updAll));
   el.addEventListener("ended",()=>{pl.mid=null;vid.remove();updAll()});
+  el.addEventListener("error",()=>{const c=el.error?el.error.code:0;pl.mid=null;vid.remove();updAll();toast("Не удалось воспроизвести запись (ошибка "+c+").")});
 }
 function voiceEl(m){
   const w=document.createElement("div"),bt=document.createElement("button"),bars=document.createElement("div"),tm=document.createElement("span"),sp=document.createElement("button");
