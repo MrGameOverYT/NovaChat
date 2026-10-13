@@ -132,7 +132,7 @@ textarea{flex:1;resize:none;max-height:120px;padding:11px 16px;border-radius:22p
 .cd{position:absolute;left:14px;bottom:14px;z-index:2;background:rgba(0,0,0,.5);color:#fff;border-radius:10px;padding:1px 7px;font-size:12px}
 .circb time{position:absolute;right:14px;bottom:14px;z-index:2;background:rgba(0,0,0,.5);color:#fff!important;border-radius:10px;padding:1px 7px;margin:0}
 #cm{z-index:28}.ccw{padding:6px;border-radius:50%;background:conic-gradient(var(--acc) calc(var(--p)*1%),rgba(255,255,255,.18) 0)}
-#ccv{display:block;width:min(74vw,300px);height:min(74vw,300px);border-radius:50%;background:#000}#ctm{font-size:22px}
+#ccv{position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none}.cpv{display:block;width:min(74vw,300px);height:min(74vw,300px);border-radius:50%;object-fit:cover;background:#000}#ctm{font-size:22px}
 #vov{width:min(92vw,420px);max-height:70vh;border-radius:24px;background:#000}
 @media(max-width:780px){.un{display:none}.ib{width:38px;height:38px;font-size:17px}.chead{gap:8px}}
 @media(max-width:780px){
@@ -210,7 +210,7 @@ const CFG = {
 
 <div class="modal" id="fw" hidden><div class="card"><h2>Переслать</h2><div id="fwl" style="display:grid;gap:6px;max-height:50vh;overflow:auto"></div><button type="button" class="lnk" id="fwc" style="color:var(--mute)">Отмена</button></div></div>
 <div class="ov" id="vo" hidden style="z-index:29"><video id="vov" controls playsinline></video><p id="voe" style="font-size:13px;opacity:.8;padding:0 16px"></p><button class="cb red" id="voc"><span>✕</span><small>Закрыть</small></button></div>
-<div class="ov" id="cm" hidden><div class="ccw"><canvas id="ccv" width="240" height="240"></canvas></div><b id="ctm">0:00</b><p style="font-size:14px;opacity:.8">Видеосообщение до 30 секунд</p>
+<div class="ov" id="cm" hidden><div class="ccw" id="ccw"><canvas id="ccv" width="240" height="240"></canvas></div><b id="ctm">0:00</b><p style="font-size:14px;opacity:.8">Видеосообщение до 30 секунд</p>
   <div class="crow"><button class="cb red" id="ccx"><span>🗑</span><small>Отмена</small></button><button class="cb" id="cfl"><span>🔄</span><small>Камера</small></button><button class="cb grn" id="cok"><span>➤</span><small>Отправить</small></button></div></div>
 <div class="ov" id="inc" hidden><div id="iav"></div><h2 id="in"></h2><p id="it"></p>
   <div class="crow" style="margin-top:24px"><button class="cb red" id="idec"><span>✖</span><small>Отклонить</small></button><button class="cb grn" id="iacc"><span>📞</span><small>Принять</small></button></div></div>
@@ -250,9 +250,10 @@ const vv=window.visualViewport;
 function fit(){
   const box=$("msgs"),near=box.scrollHeight-box.scrollTop-box.clientHeight<200;
   const typing=/^(INPUT|TEXTAREA)$/.test((document.activeElement||{}).tagName||""),dvh=!!(window.CSS&&CSS.supports&&CSS.supports("height","100dvh"));
-  const h=typing||!dvh?Math.min(vv?vv.height:Infinity,innerHeight,document.documentElement.clientHeight||Infinity)+"px":"100dvh";
+  const useDvh=dvh&&!typing&&innerWidth<=780; // узкий экран: высота с учётом панелей браузера; широкий («ПК») и клавиатура: по видимой области
+  const h=useDvh?"100dvh":Math.min(vv?vv.height:Infinity,innerHeight,document.documentElement.clientHeight||Infinity)+"px";
   document.documentElement.style.setProperty("--vh",h);
-  const off=(typing||!dvh)&&vv?vv.offsetTop:0;
+  const off=!useDvh&&vv?vv.offsetTop:0;
   document.body.style.transform=off?`translateY(${off}px)`:"";
   if(!off)window.scrollTo(0,0);
   if(near)box.scrollTop=box.scrollHeight;
@@ -731,7 +732,7 @@ function startRecorder(kind,outStream,opts){
 function finishRec(cancel){const r=rec;if(!r)return;r.cancel=cancel;if(r.mr.state!=="inactive")r.mr.stop();else onRecStop(r)}
 async function onRecStop(r){
   if(rec!==r)return;rec=null;
-  clearInterval(r.tick);clearInterval(r.lv);cancelAnimationFrame(r.raf);r.ctx&&r.ctx.close().catch(()=>{});
+  clearInterval(r.tick);clearInterval(r.lv);clearTimeout(r.pt);clearTimeout(r.chk);cancelAnimationFrame(r.raf);r.pv&&r.pv.remove();r.ctx&&r.ctx.close().catch(()=>{});
   r.streams.forEach(st=>st.getTracks().forEach(t=>t.stop()));
   $("mf").classList.remove("rec");$("cm").hidden=true;
   if(r.cancel||!r.chunks.length)return;
@@ -753,16 +754,28 @@ async function startVoice(){
   }catch{}
   $("mf").classList.add("rec");
 }
+let cpend=null;
 async function startCircle(){
-  if(rec||!cur||!recSupported())return;
+  if(rec||cpend||!cur||!recSupported())return;
   const vc=f=>({video:{facingMode:f,width:{ideal:480},height:{ideal:480}}});
   let st;try{st=await navigator.mediaDevices.getUserMedia({...vc("user"),audio:{echoCancellation:true,noiseSuppression:true}})}catch(x){toast(mediaErr(x));return}
-  const v=document.createElement("video");v.muted=true;v.playsInline=true;v.srcObject=st;await v.play().catch(()=>{});
-  const cv=$("ccv"),cx=cv.getContext("2d");cv.style.transform="scaleX(-1)";
+  // видео с камеры должно быть на экране: иначе некоторые браузеры не отдают кадры и запись получается чёрной
+  const v=document.createElement("video");v.className="cpv";v.muted=true;v.playsInline=true;v.autoplay=true;v.srcObject=st;v.style.transform="scaleX(-1)";
+  cpend={st,v};$("ccw").insertBefore(v,$("ccv"));$("cm").hidden=false;
+  await v.play().catch(()=>{});
+  if(!(v.readyState>=2&&v.videoWidth))await new Promise(res=>{v.addEventListener("loadeddata",res,{once:true});setTimeout(res,2000)});
+  if(!cpend)return; // пока камера включалась, нажали «Отмена»
+  const cv=$("ccv"),cx=cv.getContext("2d");
+  const paint=()=>{const w=v.videoWidth,h=v.videoHeight,m=Math.min(w,h);if(m)cx.drawImage(v,(w-m)/2,(h-m)/2,m,m,0,0,240,240)};
+  paint();
   const out=cv.captureStream(24);st.getAudioTracks().forEach(t=>out.addTrack(t));
-  const r=startRecorder("circle",out,{videoBitsPerSecond:140000,audioBitsPerSecond:16000});r.streams=[st,out];r.v=v;r.front=true;r.vc=vc;
-  const draw=()=>{if(rec!==r)return;const w=v.videoWidth||240,h=v.videoHeight||240,m=Math.min(w,h);cx.drawImage(v,(w-m)/2,(h-m)/2,m,m,0,0,240,240);r.raf=requestAnimationFrame(draw)};
-  draw();$("cm").hidden=false;
+  const r=startRecorder("circle",out,{videoBitsPerSecond:140000,audioBitsPerSecond:16000});
+  cpend=null;r.streams=[st,out];r.v=v;r.pv=v;r.front=true;r.vc=vc;
+  r.snap=()=>{try{const c=document.createElement("canvas");c.width=c.height=96;c.getContext("2d").drawImage(cv,0,0,96,96);return c.toDataURL("image/jpeg",.6)}catch{return ""}};
+  r.pt=setTimeout(()=>{r.poster=r.snap()},1000);
+  r.chk=setTimeout(()=>{try{const d=cx.getImageData(100,100,40,40).data;let sum=0;for(let i=0;i<d.length;i+=4)sum+=d[i]+d[i+1]+d[i+2];if(!sum)toast("Камера не отдаёт картинку. Останови запись и попробуй ещё раз.")}catch{}},900);
+  const draw=()=>{if(rec!==r)return;paint();r.raf=requestAnimationFrame(draw)};
+  draw();
 }
 async function flipCamera(){
   const r=rec;if(!r||r.kind!=="circle"||r.flipping)return;r.flipping=true;
@@ -775,7 +788,7 @@ async function flipCamera(){
   r.flipping=false;
   if(!ns){toast("Камера недоступна. Запись остановлена.");finishRec(true);return}
   if(r.front!==want)toast("Не удалось переключить камеру.");
-  r.v.srcObject=ns;r.streams.push(ns);$("ccv").style.transform=r.front?"scaleX(-1)":"";await r.v.play().catch(()=>{});
+  r.v.srcObject=ns;r.streams.push(ns);r.v.style.transform=r.front?"scaleX(-1)":"";await r.v.play().catch(()=>{});
   if(r.v.readyState<2)await new Promise(res=>{r.v.addEventListener("loadeddata",res,{once:true});setTimeout(res,1500)});
 }
 function makeWave(lv){
@@ -797,12 +810,13 @@ async function sendRecorded(r){
   if(data.length>900000){toast("Запись получилась слишком большой.");return}
   const o={text:r.kind==="voice"?"🎤 Голосовое сообщение":"📹 Видеосообщение",type:r.kind,dur,mime:blob.type||r.mime};
   if(r.kind==="voice")o.wave=makeWave(r.levels);
-  else{const p=await makePoster(blob).catch(()=>"");if(p)o.poster=p}
+  else{const p=r.poster||(r.snap?r.snap():"")||await makePoster(blob).catch(()=>"");if(p)o.poster=p}
   if(replyTo){o.reply=replyTo;clearCtx()}
   await postMsg(r.chat,o,{mime:o.mime,data});
 }
 $("vbtn").onclick=startVoice;$("cbtn").onclick=startCircle;
-$("rok").onclick=$("cok").onclick=()=>finishRec(false);$("rcx").onclick=$("ccx").onclick=()=>finishRec(true);$("cfl").onclick=flipCamera;
+$("rok").onclick=$("cok").onclick=()=>finishRec(false);$("rcx").onclick=()=>finishRec(true);
+$("ccx").onclick=()=>{if(rec)finishRec(true);else if(cpend){cpend.st.getTracks().forEach(t=>t.stop());cpend.v.remove();$("cm").hidden=true;cpend=null}};$("cfl").onclick=flipCamera;
 
 /* проигрыватель: один на всё приложение, чтобы перерисовка чата не обрывала воспроизведение */
 const aud=new Audio(),vid=document.createElement("video"),pl={mid:null,kind:null,rate:1},mediaCache=new Map();
