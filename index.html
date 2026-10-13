@@ -133,6 +133,8 @@ textarea{flex:1;resize:none;max-height:120px;padding:11px 16px;border-radius:22p
 .circb time{position:absolute;right:14px;bottom:14px;z-index:2;background:rgba(0,0,0,.5);color:#fff!important;border-radius:10px;padding:1px 7px;margin:0}
 #cm{z-index:28}.ccw{padding:6px;border-radius:50%;background:conic-gradient(var(--acc) calc(var(--p)*1%),rgba(255,255,255,.18) 0)}
 #ccv{display:block;width:min(74vw,300px);height:min(74vw,300px);border-radius:50%;background:#000}#ctm{font-size:22px}
+#vov{width:min(92vw,420px);max-height:70vh;border-radius:24px;background:#000}
+@media(max-width:780px){.un{display:none}.ib{width:38px;height:38px;font-size:17px}.chead{gap:8px}}
 @media(max-width:780px){
  #app{grid-template-columns:1fr}
  #side,#chat{position:absolute;inset:0;transition:transform .3s cubic-bezier(.3,.9,.3,1)}
@@ -207,6 +209,7 @@ const CFG = {
 </div>
 
 <div class="modal" id="fw" hidden><div class="card"><h2>Переслать</h2><div id="fwl" style="display:grid;gap:6px;max-height:50vh;overflow:auto"></div><button type="button" class="lnk" id="fwc" style="color:var(--mute)">Отмена</button></div></div>
+<div class="ov" id="vo" hidden style="z-index:29"><video id="vov" controls playsinline></video><p id="voe" style="font-size:13px;opacity:.8;padding:0 16px"></p><button class="cb red" id="voc"><span>✕</span><small>Закрыть</small></button></div>
 <div class="ov" id="cm" hidden><div class="ccw"><canvas id="ccv" width="240" height="240"></canvas></div><b id="ctm">0:00</b><p style="font-size:14px;opacity:.8">Видеосообщение до 30 секунд</p>
   <div class="crow"><button class="cb red" id="ccx"><span>🗑</span><small>Отмена</small></button><button class="cb" id="cfl"><span>🔄</span><small>Камера</small></button><button class="cb grn" id="cok"><span>➤</span><small>Отправить</small></button></div></div>
 <div class="ov" id="inc" hidden><div id="iav"></div><h2 id="in"></h2><p id="it"></p>
@@ -246,10 +249,12 @@ const $=id=>document.getElementById(id);
 const vv=window.visualViewport;
 function fit(){
   const box=$("msgs"),near=box.scrollHeight-box.scrollTop-box.clientHeight<200;
-  const h=Math.min(vv?vv.height:Infinity,innerHeight,document.documentElement.clientHeight||Infinity);
-  document.documentElement.style.setProperty("--vh",h+"px");
-  document.body.style.transform=vv&&vv.offsetTop?`translateY(${vv.offsetTop}px)`:"";
-  if(!vv||!vv.offsetTop)window.scrollTo(0,0);
+  const typing=/^(INPUT|TEXTAREA)$/.test((document.activeElement||{}).tagName||""),dvh=!!(window.CSS&&CSS.supports&&CSS.supports("height","100dvh"));
+  const h=typing||!dvh?Math.min(vv?vv.height:Infinity,innerHeight,document.documentElement.clientHeight||Infinity)+"px":"100dvh";
+  document.documentElement.style.setProperty("--vh",h);
+  const off=(typing||!dvh)&&vv?vv.offsetTop:0;
+  document.body.style.transform=off?`translateY(${off}px)`:"";
+  if(!off)window.scrollTo(0,0);
   if(near)box.scrollTop=box.scrollHeight;
 }
 if(vv){vv.addEventListener("resize",fit);vv.addEventListener("scroll",fit)}
@@ -771,6 +776,7 @@ async function flipCamera(){
   if(!ns){toast("Камера недоступна. Запись остановлена.");finishRec(true);return}
   if(r.front!==want)toast("Не удалось переключить камеру.");
   r.v.srcObject=ns;r.streams.push(ns);$("ccv").style.transform=r.front?"scaleX(-1)":"";await r.v.play().catch(()=>{});
+  if(r.v.readyState<2)await new Promise(res=>{r.v.addEventListener("loadeddata",res,{once:true});setTimeout(res,1500)});
 }
 function makeWave(lv){
   const n=40,out=[];
@@ -812,15 +818,23 @@ async function togglePlay(m,kind){
   const el=kind==="circle"?vid:aud;
   if(pl.mid===m.mid){if(el.paused)el.play().catch(()=>{});else el.pause();return}
   stopPlayer();
-  try{const url=await getMedia(cur,m);pl.mid=m.mid;pl.kind=kind;el.src=url;el.playbackRate=pl.rate;updAll();await el.play()}
+  let url;try{url=await getMedia(cur,m)}catch(x){toast(errText(x));return}
+  pl.mid=m.mid;pl.kind=kind;pl.url=url;el.src=url;el.playbackRate=pl.rate;updAll();
+  if(kind==="circle"){clearTimeout(pl.wd);pl.wd=setTimeout(()=>{if(pl.mid===m.mid&&vid.paused)fallbackPlayer(url,"")},2500)} // не стартовало — открываем обычный плеер
+  try{await el.play()}
   catch(x){
-    pl.mid=null;updAll();
-    if(x&&x.name==="NotAllowedError")toast("Нажми на сообщение ещё раз, чтобы запустить.");
-    else if(x&&x.name==="NotSupportedError")toast("Этот браузер не умеет воспроизводить такую запись.");
-    else if(x&&x.name!=="AbortError")toast(errText(x));
+    if(x&&x.name==="AbortError")return;
+    if(kind==="circle")fallbackPlayer(url,x&&x.name?x.name:"");
+    else{pl.mid=null;updAll();toast(x&&x.name==="NotAllowedError"?"Нажми на сообщение ещё раз, чтобы запустить.":"Не удалось воспроизвести запись.")}
   }
 }
-function stopPlayer(){aud.pause();vid.pause();vid.remove();pl.mid=null;updAll()}
+function fallbackPlayer(url,why){ // запасной полноэкранный проигрыватель со стандартными кнопками
+  clearTimeout(pl.wd);stopPlayer();
+  const v=$("vov");v.src=url;$("voe").textContent=why?"Подробности: "+why:"";$("vo").hidden=false;v.play().catch(()=>{});
+}
+$("voc").onclick=()=>{const v=$("vov");v.pause();v.removeAttribute("src");v.load();$("vo").hidden=true};
+$("vov").onerror=()=>{const e=$("vov").error;$("voe").textContent="Не удаётся воспроизвести запись: "+(e?"код "+e.code+(e.message?" ("+e.message+")":""):"неизвестная ошибка")};
+function stopPlayer(){clearTimeout(pl.wd);aud.pause();vid.pause();vid.remove();pl.mid=null;updAll()}
 function cycleRate(){pl.rate=pl.rate===1?1.5:pl.rate===1.5?2:1;aud.playbackRate=pl.rate;vid.playbackRate=pl.rate;updAll()}
 function updAll(){
   const el=pl.kind==="circle"?vid:aud,playing=!!pl.mid&&!el.paused;
@@ -840,7 +854,11 @@ function updAll(){
 for(const el of [aud,vid]){
   ["timeupdate","play","pause"].forEach(ev=>el.addEventListener(ev,updAll));
   el.addEventListener("ended",()=>{pl.mid=null;vid.remove();updAll()});
-  el.addEventListener("error",()=>{const c=el.error?el.error.code:0;pl.mid=null;vid.remove();updAll();toast("Не удалось воспроизвести запись (ошибка "+c+").")});
+  el.addEventListener("error",()=>{
+    const c=el.error?el.error.code:0,url=pl.url;
+    if(el===vid&&url)fallbackPlayer(url,"код "+c+(el.error&&el.error.message?" ("+el.error.message+")":""));
+    else{pl.mid=null;vid.remove();updAll();toast("Не удалось воспроизвести запись (ошибка "+c+").")}
+  });
 }
 function voiceEl(m){
   const w=document.createElement("div"),bt=document.createElement("button"),bars=document.createElement("div"),tm=document.createElement("span"),sp=document.createElement("button");
@@ -984,7 +1002,11 @@ async function search(q){
 function refreshHead(){
   const p=peer.uid==="global"?GLOBAL:cache.get(peer.uid)||peer;
   $("hav").replaceChildren(avatar(p,"sm"));$("ht").textContent=p.name;$("cp").hidden=$("cv").hidden=p.uid==="global";if(p.uid==="global"){$("hs").textContent="Общий чат для всех";$("hs").className=""}
-  else{const st=statusOf(p);$("hs").textContent=(p.username?"@"+p.username+" · ":"")+st.t;$("hs").className=st.on?"on":""}
+  else{
+    const st=statusOf(p),h=$("hs");h.textContent="";h.className=st.on?"on":"";
+    if(p.username){const u=document.createElement("span");u.className="un";u.textContent="@"+p.username+" · ";h.append(u)}
+    h.append(st.t);
+  }
 }
 function openChat(p){
   cache.set(p.uid,p.uid==="global"?cache.get("global")||GLOBAL:p);
