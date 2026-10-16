@@ -147,6 +147,7 @@ textarea{flex:1;resize:none;max-height:120px;padding:11px 16px;border-radius:22p
 .card textarea{width:100%;padding:11px 14px;border-radius:14px;border:2px solid var(--line);background:var(--bg);outline:0;resize:none;max-height:none}
 #hav,#ht,#hs{cursor:pointer}
 .cbar .cb{width:58px;height:58px;font-size:22px}.cbar{gap:10px}
+.snd{display:grid;gap:8px}.srow{display:flex;align-items:center;gap:8px}.srow span{width:84px;font-size:14px;color:var(--mute)}.srow select{flex:1;min-width:0;padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:inherit}
 @media(max-width:780px){.un{display:none}.ib{width:38px;height:38px;font-size:17px}.chead{gap:8px}}
 @media(max-width:780px){
  #app{grid-template-columns:1fr}
@@ -254,6 +255,9 @@ const CFG = {
  <div class="unw"><span>@</span><input id="pu" placeholder="username" maxlength="20" autocapitalize="none" autocomplete="off"></div>
  <small style="color:var(--mute)">Username: 3–20 символов, латиница, цифры и _. По нему тебя найдут другие.</small>
  <textarea id="pb" rows="2" maxlength="140" placeholder="О себе (до 140 символов)"></textarea>
+ <div class="snd"><b style="font-size:14px">Звуки (на этом устройстве)</b>
+  <div class="srow"><span>Звонок</span><select id="sr"></select><button type="button" class="lnk" id="srp" aria-label="Прослушать">▶</button></div>
+  <div class="srow"><span>Сообщение</span><select id="sm"></select><button type="button" class="lnk" id="smp" aria-label="Прослушать">▶</button></div></div>
  <button type="button" class="lnk" id="pnt" hidden>🔔 Включить уведомления</button>
  <div class="err" id="pe"></div>
  <button class="btn" id="ps">Сохранить</button>
@@ -410,7 +414,7 @@ $("pig").onclick=()=>fill(srcs().g);$("pit").onclick=()=>fill(srcs().t);
 function openProfile(force){
   pPhoto=meDoc.photo||"";$("pt").textContent=force?"Завершим профиль":"Профиль";
   $("pn").value=meDoc.name==="Гость"?"":meDoc.name||"";$("pb").value=meDoc.bio||"";$("pu").value=meDoc.username||"";$("pe").textContent="";$("pc").hidden=force;
-  const s=srcs();$("pig").hidden=!s.g;$("pit").hidden=!s.t;$("pnt").hidden=!("Notification" in window)||Notification.permission==="granted";drawP();$("pm").hidden=false;
+  const s=srcs();$("pig").hidden=!s.g;$("pit").hidden=!s.t;$("pnt").hidden=!("Notification" in window)||Notification.permission==="granted";buildSoundSelect("ring",$("sr"));buildSoundSelect("msg",$("sm"));drawP();$("pm").hidden=false;
 }
 $("meb").onclick=()=>meDoc&&openProfile(false);
 $("pph").onclick=()=>pickPhoto(p=>{pPhoto=p;drawP()});
@@ -513,14 +517,15 @@ function mediaErr(x){
   return "Не удалось включить микрофон или камеру.";
 }
 function ring(on){
-  clearInterval(ringT);ringT=null;
+  clearInterval(ringT);ringT=null;ringAud.pause();
   if(!on){navigator.vibrate&&navigator.vibrate(0);return}
-  const beep=()=>{
-    try{ringCtx=ringCtx||new (window.AudioContext||window.webkitAudioContext)();const o=ringCtx.createOscillator(),g=ringCtx.createGain();
-      o.frequency.value=720;g.gain.value=.12;o.connect(g);g.connect(ringCtx.destination);o.start();o.stop(ringCtx.currentTime+.35)}catch{}
-    navigator.vibrate&&navigator.vibrate([300,150,300]);
-  };
-  beep();ringT=setInterval(beep,1800);
+  const f=sndFile("ring"),vib=()=>navigator.vibrate&&navigator.vibrate([300,150,300]);
+  const beeps=()=>{beepOnce();vib();ringT=setInterval(()=>{beepOnce();vib()},1800)};
+  if(f==="off"){vib();ringT=setInterval(vib,2000);return}
+  if(f==="def"){beeps();return}
+  ringAud.src=f;ringAud.currentTime=0;ringAud.onerror=()=>{ringAud.onerror=null;beeps()};
+  ringAud.play().catch(()=>{if(!ringT)beeps()});
+  vib();ringT=setInterval(vib,2000);
 }
 function listenCalls(u){
   unsubs.push(onSnapshot(query(collection(db,"calls"),where("to","==",u.uid),where("status","==","ringing")),s=>{
@@ -665,6 +670,52 @@ $("bscr").onclick=async()=>{
 };
 addEventListener("pagehide",()=>{if(call)setDoc(doc(db,"calls",call.id),{status:"ended"},{merge:true}).catch(()=>{})});
 
+/* ---------- звуки: мелодия звонка и звук сообщения ---------- */
+// Файлы кладутся рядом с index.html (в корень репозитория). Названия меню можно менять здесь.
+// Позже сюда же добавим «свои» звуки: достаточно дописать элементы в эти списки.
+const SOUNDS={
+  ring:[{id:"ring1",name:"Мелодия 1",file:"ring1.mp3"},{id:"ring2",name:"Мелодия 2",file:"ring2.mp3"},{id:"ring3",name:"Мелодия 3",file:"ring3.mp3"}],
+  msg:[{id:"msg1",name:"Сигнал 1",file:"msg1.mp3"},{id:"msg2",name:"Сигнал 2",file:"msg2.mp3"},{id:"msg3",name:"Сигнал 3",file:"msg3.mp3"}]
+};
+const SND_DEF={ring:"ring1",msg:"msg1"};
+const sndPref=()=>{try{return JSON.parse(localStorage.getItem("nc_snd")||"{}")}catch{return {}}};
+const sndChoice=k=>sndPref()[k]||SND_DEF[k];
+function sndFile(k){const c=sndChoice(k);if(c==="off"||c==="def")return c;const o=SOUNDS[k].find(x=>x.id===c);return o?o.file:"def"}
+function setSnd(k,v){const p=sndPref();p[k]=v;try{localStorage.setItem("nc_snd",JSON.stringify(p))}catch{}}
+const ringAud=new Audio(),msgAud=new Audio(),pvAud=new Audio();let pvT=null;
+ringAud.loop=true;
+function beepOnce(){ // стандартный сигнал, если файла нет или выбран «стандартный»
+  try{
+    ringCtx=ringCtx||new (window.AudioContext||window.webkitAudioContext)();
+    [660,880].forEach((f,i)=>{const o=ringCtx.createOscillator(),g=ringCtx.createGain(),t=ringCtx.currentTime+i*0.16;
+      o.frequency.value=f;g.gain.value=.12;o.connect(g);g.connect(ringCtx.destination);o.start(t);o.stop(t+.14)});
+  }catch{}
+}
+function playMsgSound(){
+  const f=sndFile("msg");if(f==="off")return;
+  if(f==="def"){beepOnce();return}
+  msgAud.src=f;msgAud.currentTime=0;msgAud.play().catch(beepOnce);
+}
+function previewSound(k){
+  pvAud.pause();clearTimeout(pvT);const f=sndFile(k);
+  if(f==="off")return;
+  if(f==="def"){beepOnce();return}
+  pvAud.src=f;pvAud.currentTime=0;
+  pvAud.play().then(()=>{pvT=setTimeout(()=>pvAud.pause(),5000)}).catch(()=>toast("Файл не найден или не воспроизводится. Проверь название и что он загружен на GitHub."));
+}
+function buildSoundSelect(k,sel){
+  sel.textContent="";
+  const add=(id,t)=>{const o=document.createElement("option");o.value=id;o.textContent=t;sel.append(o)};
+  add("def","Стандартный сигнал");SOUNDS[k].forEach(s=>add(s.id,s.name));add("off","Без звука");
+  sel.value=sndChoice(k);
+  SOUNDS[k].forEach(s=>fetch(s.file,{method:"HEAD",cache:"no-store"}).then(r=>{if(!r.ok)throw 0}).catch(()=>{ // подписываем, если файл не загружен
+    const o=[...sel.options].find(x=>x.value===s.id);if(o)o.textContent=s.name+" (нет файла)";
+  }));
+}
+$("sr").onchange=()=>{setSnd("ring",$("sr").value);previewSound("ring")};
+$("sm").onchange=()=>{setSnd("msg",$("sm").value);previewSound("msg")};
+$("srp").onclick=()=>previewSound("ring");$("smp").onclick=()=>previewSound("msg");
+
 /* ---------- уведомления ---------- */
 const canNotif=()=>"Notification" in window&&Notification.permission==="granted";
 async function notify(title,body,tag,extra){
@@ -724,6 +775,7 @@ const lastMs=new Map();let chatsInit=false;
 function notifyNew(){
   for(const c of chats){
     const la=tms(c.lastAt),prev=lastMs.get(c.id)||0;
+    if(chatsInit&&c.lastFrom&&c.lastFrom!==me.uid&&la>prev&&document.visibilityState==="visible")playMsgSound();
     if(chatsInit&&c.lastFrom&&c.lastFrom!==me.uid&&la>prev&&(document.visibilityState!=="visible"||c.id!==cur)){
       const o=cache.get(c.members.find(x=>x!==me.uid)),txt=c.lastText||"Новое сообщение";
       if(document.visibilityState==="visible")toast((o?o.name+": ":"")+txt);else notify(o?o.name:"NovaChat",txt,c.id);
@@ -982,7 +1034,7 @@ async function openWatch(chat,wid,src){
   const ok=src&&(src.k==="yt"?YT_RE.test(src.v):src.k==="file"&&(parseWatch(src.v)||{}).k==="file");
   if(!ok||!wid){toast("Не удалось открыть просмотр.");return}
   if(wt)closeWatch();
-  const w=wt={chat,wid,k:src.k,v:src.v,applying:0,lead:false,synced:false,last:{pos:0,t:Date.now(),playing:false}};
+  const w=wt={chat,wid,k:src.k,v:src.v,applying:0,lead:false,synced:false,last:{pos:0,t:Date.now(),playing:false},pt:0,ptAt:0,ptInit:false,peerLeft:false,aloneSince:0,hereOnce:false,here:false};
   $("wmic").hidden=$("wend").hidden=!call;$("wts").textContent="Подключаемся…";$("wt").hidden=false;
   const box=$("wtbox");box.textContent="";
   if(src.k==="yt"){
@@ -1004,17 +1056,25 @@ function wReady(w){
     if(!s.exists()||s.metadata.hasPendingWrites)return;
     const d=s.data();
     if(d.ended){toast("Просмотр завершён.");closeWatch();return}
-    $("wts").textContent="Синхронизация включена";
     if(d.by===me.uid&&w.synced)return; // свои действия повторно не применяем
     w.synced=true;wApply(w,d);
   },()=>{});
+  // кто сейчас в просмотре: каждый раз в 8 секунд отмечается, а «живость» собеседника считаем по приходу его отметок
+  w.unsub2=onSnapshot(collection(db,"chats",w.chat,"watch",w.wid,"pres"),s=>{
+    const pu=w.chat.split("_").find(x=>x!==me.uid),d=s.docs.find(x=>x.id===pu);
+    if(!d){w.pt=0;return}
+    const x=d.data(),tv=tms(x.t);w.peerLeft=!!x.left;
+    if(!w.ptInit){w.ptInit=true;w.pt=tv;w.ptAt=Date.now()-17000} // старая отметка быстро «протухнет», живая обновится
+    else if(tv!==w.pt){w.pt=tv;w.ptAt=Date.now()}
+  },()=>{});
+  wPres(w,true);w.pr=setInterval(()=>wPres(w,true),8000);w.chk=setInterval(()=>wCheck(w),1000);
   w.poll=setInterval(()=>wPoll(w),600);
   w.hb=setInterval(()=>{if(w.lead&&w.last.playing)wPush(w)},5000); // «пульс»: подтягивает того, кто отстал
 }
 const wPos=w=>w.k==="yt"?(w.yt&&w.yt.getCurrentTime?w.yt.getCurrentTime():null):w.vel.currentTime;
 const wPlaying=w=>w.k==="yt"?!!(w.yt&&w.yt.getPlayerState&&w.yt.getPlayerState()===1):!w.vel.paused;
 function wApply(w,d){
-  w.applying=Date.now()+1000;w.lead=false;w.last={pos:d.pos,t:Date.now(),playing:!!d.playing};
+  w.applying=Date.now()+1800;w.lead=false;w.last={pos:d.pos,t:Date.now(),playing:!!d.playing};
   if(w.k==="yt"){
     const p=w.yt;if(!p||!p.getCurrentTime)return;
     if(Math.abs(p.getCurrentTime()-d.pos)>1.5)p.seekTo(d.pos,true);
@@ -1025,8 +1085,8 @@ function wApply(w,d){
     if(d.playing&&v.paused)v.play().catch(()=>{});else if(!d.playing&&!v.paused)v.pause();
   }
 }
-function wPush(w){
-  const pos=wPos(w),playing=wPlaying(w);if(pos==null)return;
+function wPush(w,over={}){
+  const pos=wPos(w),playing=over.playing!==undefined?over.playing:wPlaying(w);if(pos==null)return;
   w.last={pos,t:Date.now(),playing};
   setDoc(doc(db,"chats",w.chat,"watch",w.wid),{playing,pos,by:me.uid,at:serverTimestamp()},{merge:true}).catch(()=>{});
 }
@@ -1039,17 +1099,33 @@ function wPoll(w){ // перемотку в YouTube отдельным собы�
   const exp=w.last.pos+(w.last.playing?(Date.now()-w.last.t)/1000:0);
   if(Math.abs(pos-exp)>2.5){w.lead=true;wPush(w)}
 }
+function wPres(w,here){if(!me)return;setDoc(doc(db,"chats",w.chat,"watch",w.wid,"pres",me.uid),{t:serverTimestamp(),left:!here}).catch(()=>{})}
+const wPeerHere=w=>!!w.pt&&!w.peerLeft&&Date.now()-w.ptAt<25000;
+function wCheck(w){ // нет собеседника — просмотр на паузе; долго никого нет — сеанс завершается
+  if(wt!==w)return;
+  const here=wPeerHere(w);w.here=here;
+  if(here){w.aloneSince=0;w.hereOnce=true;$("wts").textContent="Смотрите вместе";return}
+  if(!w.aloneSince)w.aloneSince=Date.now();
+  $("wts").textContent=w.hereOnce?"Собеседник вышел — просмотр на паузе":"Ждём собеседника…";
+  if(wPlaying(w)){
+    w.applying=Date.now()+1800;w.lead=true;
+    if(w.k==="yt"){try{w.yt.pauseVideo()}catch{}}else w.vel.pause();
+    wPush(w,{playing:false});
+  }
+  if(Date.now()-w.aloneSince>180000){endWatch(w);toast("Никто не присоединился — просмотр завершён.");closeWatch()}
+}
 function closeWatch(){
   const w=wt;if(!w)return;wt=null;
-  clearInterval(w.poll);clearInterval(w.hb);w.unsub&&w.unsub();
+  clearInterval(w.poll);clearInterval(w.hb);clearInterval(w.chk);clearInterval(w.pr);w.unsub&&w.unsub();w.unsub2&&w.unsub2();wPres(w,false);
   try{w.yt&&w.yt.destroy()}catch{}
   $("wtbox").textContent="";$("wt").hidden=true;
 }
 const endWatch=w=>setDoc(doc(db,"chats",w.chat,"watch",w.wid),{ended:true,by:me.uid,at:serverTimestamp()},{merge:true}).catch(()=>{});
-$("wtx").onclick=closeWatch;
+$("wtx").onclick=()=>{const w=wt;if(!w)return;if(!wPeerHere(w))endWatch(w);closeWatch()}; // если остался один — сеанс завершается
 $("wtstop").onclick=()=>{const w=wt;if(!w)return;endWatch(w);closeWatch()};
 $("wtnew").onclick=()=>{const w=wt;if(!w)return;endWatch(w);closeWatch();watchPrompt(w.chat)};
 $("wmic").onclick=()=>$("bmic").click();$("wend").onclick=()=>$("bend").click();
+addEventListener("pagehide",()=>{if(wt)wPres(wt,false)});
 $("bwt").onclick=()=>{if(call)watchPrompt([me.uid,call.peer.uid].sort().join("_"))};
 // приглашение: приходит в любом месте приложения, даже во время звонка
 const lastWid=new Map();let widInit=false,invTimer=null,invData=null;
