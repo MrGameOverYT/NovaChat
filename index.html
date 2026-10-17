@@ -671,11 +671,11 @@ $("bscr").onclick=async()=>{
 addEventListener("pagehide",()=>{if(call)setDoc(doc(db,"calls",call.id),{status:"ended"},{merge:true}).catch(()=>{})});
 
 /* ---------- звуки: мелодия звонка и звук сообщения ---------- */
-// Файлы кладутся рядом с index.html (в корень репозитория). Названия меню можно менять здесь.
+// Файлы лежат в папке songs/ рядом с index.html. Названия в меню можно менять здесь.
 // Позже сюда же добавим «свои» звуки: достаточно дописать элементы в эти списки.
 const SOUNDS={
-  ring:[{id:"ring1",name:"Мелодия 1",file:"ring1.mp3"},{id:"ring2",name:"Мелодия 2",file:"ring2.mp3"},{id:"ring3",name:"Мелодия 3",file:"ring3.mp3"}],
-  msg:[{id:"msg1",name:"Сигнал 1",file:"msg1.mp3"},{id:"msg2",name:"Сигнал 2",file:"msg2.mp3"},{id:"msg3",name:"Сигнал 3",file:"msg3.mp3"}]
+  ring:[{id:"ring1",name:"Мелодия 1",file:"songs/ring1.mp3"},{id:"ring2",name:"Мелодия 2",file:"songs/ring2.mp3"},{id:"ring3",name:"Мелодия 3",file:"songs/ring3.mp3"}],
+  msg:[{id:"msg1",name:"Сигнал 1",file:"songs/msg1.mp3"},{id:"msg2",name:"Сигнал 2",file:"songs/msg2.mp3"},{id:"msg3",name:"Сигнал 3",file:"songs/msg3.mp3"}]
 };
 const SND_DEF={ring:"ring1",msg:"msg1"};
 const sndPref=()=>{try{return JSON.parse(localStorage.getItem("nc_snd")||"{}")}catch{return {}}};

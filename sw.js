@@ -1,5 +1,5 @@
 // NovaChat: service worker. Файлы всегда свежие из сети, кэш — только без интернета. Плюс push-уведомления.
-const CACHE = 'novachat-v5';
+const CACHE = 'novachat-v6';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'badge-96.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -10,6 +10,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return; // Firebase и Telegram идут напрямую
+  if (/\.(mp3|ogg|wav|m4a|aac|mp4|webm)$/i.test(u.pathname)) return; // звуки и видео браузер грузит сам (нужны частичные запросы)
   e.respondWith(fetch(u.href, { cache: 'no-cache' }).then(r => {
     const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r;
   }).catch(() => caches.match(e.request).then(m => m || caches.match('index.html'))));
