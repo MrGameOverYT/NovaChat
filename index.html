@@ -259,13 +259,14 @@ const CFG = {
   <div class="srow"><span>Звонок</span><select id="sr"></select><button type="button" class="lnk" id="srp" aria-label="Прослушать">▶</button></div>
   <div class="srow"><span>Сообщение</span><select id="sm"></select><button type="button" class="lnk" id="smp" aria-label="Прослушать">▶</button></div></div>
  <button type="button" class="lnk" id="pnt" hidden>🔔 Включить уведомления</button>
+ <button type="button" class="lnk" id="ppw" hidden>🔑 Пароль для входа в приложение</button>
  <div class="err" id="pe"></div>
  <button class="btn" id="ps">Сохранить</button>
  <div style="display:flex;justify-content:space-between"><button type="button" class="lnk" id="pc" style="color:var(--mute)">Закрыть</button><button type="button" class="lnk" id="po">Выйти из аккаунта</button></div>
 </div></div>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signInWithCustomToken,signOut,GoogleAuthProvider,signInWithPopup,signInWithRedirect,setPersistence,browserLocalPersistence} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signInWithCustomToken,signOut,GoogleAuthProvider,signInWithPopup,signInWithRedirect,setPersistence,browserLocalPersistence,EmailAuthProvider,linkWithCredential} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {getFirestore,collection,doc,getDoc,getDocs,setDoc,onSnapshot,query,orderBy,limit,limitToLast,where,serverTimestamp,writeBatch,updateDoc,deleteDoc,deleteField,arrayUnion,arrayRemove} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {getMessaging,getToken,isSupported} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 
@@ -380,6 +381,12 @@ $("gb").onclick=async()=>{
     if(x.code!=="auth/cancelled-popup-request")$("ae").textContent=errText(x);
   }
 };
+if(window.NovaNative){ // в приложении вход через Google недоступен (Google блокирует встроенные браузеры)
+  $("gb").hidden=true;
+  const hint=document.createElement("div");hint.className="err";hint.style.color="var(--mute)";
+  hint.textContent="В приложении вход по почте и паролю. Для аккаунта Google пароль можно задать в профиле на сайте.";
+  $("gb").after(hint);
+}
 if(CFG.botName&&CFG.workerUrl){
   window.onTelegramAuth=async u=>{
     $("ae").textContent="";
@@ -414,7 +421,9 @@ $("pig").onclick=()=>fill(srcs().g);$("pit").onclick=()=>fill(srcs().t);
 function openProfile(force){
   pPhoto=meDoc.photo||"";$("pt").textContent=force?"Завершим профиль":"Профиль";
   $("pn").value=meDoc.name==="Гость"?"":meDoc.name||"";$("pb").value=meDoc.bio||"";$("pu").value=meDoc.username||"";$("pe").textContent="";$("pc").hidden=force;
-  const s=srcs();$("pig").hidden=!s.g;$("pit").hidden=!s.t;$("pnt").hidden=!("Notification" in window)||Notification.permission==="granted";buildSoundSelect("ring",$("sr"));buildSoundSelect("msg",$("sm"));drawP();$("pm").hidden=false;
+  const s=srcs();$("pig").hidden=!s.g;$("pit").hidden=!s.t;$("pnt").hidden=!("Notification" in window)||Notification.permission==="granted";buildSoundSelect("ring",$("sr"));buildSoundSelect("msg",$("sm"));
+  {const pv=me.providerData.map(x=>x.providerId);$("ppw").hidden=!(pv.includes("google.com")&&!pv.includes("password")&&me.email)}
+  drawP();$("pm").hidden=false;
 }
 $("meb").onclick=()=>meDoc&&openProfile(false);
 $("pph").onclick=()=>pickPhoto(p=>{pPhoto=p;drawP()});
@@ -454,7 +463,7 @@ onAuthStateChanged(auth,async u=>{
     meDoc=s.exists()?{uid:u.uid,...s.data()}:{uid:u.uid,name:draft.name||"",photo:draft.photo||"",color:colorOf(u.uid),_new:true};
     cache.set(u.uid,meDoc);drawMe();
     if(!meDoc.username&&$("pm").hidden)openProfile(true);redraw();
-    if(meDoc.username&&!presOn){presOn=true;startPresence();if(canNotif())registerPush()}
+    if(meDoc.username&&!presOn){presOn=true;startPresence();if(canNotif()||window.NovaNative){registerPush();syncNativeRing()}}
   },e=>toast(errText(e))));
   unsubs.push(onSnapshot(query(collection(db,"chats"),where("members","array-contains",u.uid)),s=>{
     chats=s.docs.map(d=>({id:d.id,...d.data()}));loadUsers(chats.map(c=>c.members.find(x=>x!==u.uid)));drawList();
@@ -561,6 +570,8 @@ async function startCall(video){
   catch(x){stream.getTracks().forEach(t=>t.stop());toast(errText(x));return}
   pushNotify({type:"call",id:ref.id});
   openCall({id:ref.id,peer:cache.get(to)||peer,polite:false,caller:true},stream,video);
+  const cc=call; // пока звонок не принят, повторяем push раз в 7 секунд: у закрытого приложения телефон «звонит» снова и снова
+  if(cc)cc.rp=setInterval(()=>{if(call!==cc||cc.active){clearInterval(cc.rp);return}pushNotify({type:"call",id:ref.id})},7000);
 }
 async function acceptCall(d){
   if(call)return;let stream;
@@ -631,7 +642,7 @@ function endCall(msg,write,outcome){
   const c=call;if(!c)return;call=null;
   if(c.caller){const oc=outcome||(write?(c.active?"ended":"cancelled"):null);if(oc)recordCall(c,oc==="ended"&&!c.active?"cancelled":oc)}
   if(write)setDoc(doc(db,"calls",c.id),{status:"ended"},{merge:true}).catch(()=>{});
-  clearTimeout(c.noAns);clearInterval(c.tick);c.unsubs.forEach(f=>f());
+  clearTimeout(c.noAns);clearInterval(c.tick);clearInterval(c.rp);c.unsubs.forEach(f=>f());
   try{c.pc.close()}catch{}
   c.local.getTracks().forEach(t=>t.stop());c.vtrack&&c.vtrack.stop();
   $("call").hidden=true;$("rv").srcObject=null;$("ra").srcObject=null;$("lv").srcObject=null;ring(false);
@@ -681,7 +692,12 @@ const SND_DEF={ring:"ring1",msg:"msg1"};
 const sndPref=()=>{try{return JSON.parse(localStorage.getItem("nc_snd")||"{}")}catch{return {}}};
 const sndChoice=k=>sndPref()[k]||SND_DEF[k];
 function sndFile(k){const c=sndChoice(k);if(c==="off"||c==="def")return c;const o=SOUNDS[k].find(x=>x.id===c);return o?o.file:"def"}
-function setSnd(k,v){const p=sndPref();p[k]=v;try{localStorage.setItem("nc_snd",JSON.stringify(p))}catch{}}
+function setSnd(k,v){const p=sndPref();p[k]=v;try{localStorage.setItem("nc_snd",JSON.stringify(p))}catch{}if(k==="ring")syncNativeRing()}
+function syncNativeRing(){ // приложение для Android скачивает выбранную мелодию и играет её при звонке
+  if(!window.NovaNative)return;
+  const f=sndFile("ring");
+  try{window.NovaNative.setRingtone(f==="def"||f==="off"?f:new URL(f,location.href).href)}catch{}
+}
 const ringAud=new Audio(),msgAud=new Audio(),pvAud=new Audio();let pvT=null;
 ringAud.loop=true;
 function beepOnce(){ // стандартный сигнал, если файла нет или выбран «стандартный»
@@ -733,6 +749,11 @@ async function askNotif(){
   $("pnt").hidden=true;drawList();if(r==="granted")registerPush();
 }
 $("pnt").onclick=askNotif;
+$("ppw").onclick=async()=>{ // пароль для аккаунта Google, чтобы входить в приложение для Android по почте
+  const pw=prompt("Придумай пароль (минимум 6 символов). Он нужен для входа в приложение для Android:");if(!pw)return;
+  try{await linkWithCredential(me,EmailAuthProvider.credential(me.email,pw));toast("Готово! В приложении входи по почте "+me.email+" и этому паролю.");$("ppw").hidden=true}
+  catch(x){toast(x.code==="auth/requires-recent-login"?"Выйди из аккаунта, войди через Google заново и повтори.":errText(x))}
+};
 let fcmToken=null,pushDone=false,autoAcc=new URLSearchParams(location.search).get("acc");
 if(autoAcc)history.replaceState(null,"",location.pathname);
 if("serviceWorker" in navigator)navigator.serviceWorker.addEventListener("message",e=>{
@@ -750,6 +771,19 @@ function avatarIcon(p){ // картинка собеседника для уве
 }
 /* push через Firebase Cloud Messaging: работает, даже когда приложение закрыто */
 async function registerPush(){
+  if(window.NovaNative){ // приложение для Android: ключ устройства выдаёт сама оболочка
+    if(pushDone||!me)return;pushDone=true;
+    for(let i=0;i<8&&!fcmToken;i++){
+      let tk="";try{tk=window.NovaNative.getToken()||""}catch{}
+      if(tk){
+        try{await setDoc(doc(db,"fcm",me.uid),{tokens:arrayUnion(tk),updatedAt:serverTimestamp()},{merge:true});fcmToken=tk}catch{pushDone=false}
+        break;
+      }
+      await new Promise(r=>setTimeout(r,2500));
+    }
+    if(!fcmToken)pushDone=false;
+    return;
+  }
   if(pushDone||!me||!canNotif()||!CFG.workerUrl||!("serviceWorker" in navigator))return;
   pushDone=true;
   try{
