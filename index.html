@@ -27,8 +27,8 @@ button{cursor:pointer;border:0;background:none}
 .logo{display:flex;align-items:center;gap:10px}.logo svg{width:34px;height:34px;animation:spin 14s linear infinite}.logo b{font-size:20px;letter-spacing:-.5px}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* вход */
-#auth{height:100%;display:flex;padding:14px;background:radial-gradient(520px 360px at 85% 5%,rgba(183,156,255,.35),transparent),radial-gradient(460px 340px at 5% 95%,rgba(255,107,74,.28),transparent),var(--bg);overflow:auto}
-.card{width:100%;max-width:400px;background:var(--panel);border:2px solid var(--ink);border-radius:32px 8px 32px 8px;padding:20px;margin:auto;box-shadow:6px 6px 0 var(--acc);display:grid;gap:10px}.card h2{font-size:20px}
+#auth{height:100%;display:flex;padding:44px 14px 14px;background:radial-gradient(520px 360px at 85% 5%,rgba(183,156,255,.35),transparent),radial-gradient(460px 340px at 5% 95%,rgba(255,107,74,.28),transparent),var(--bg);overflow:auto}
+.card{width:100%;max-width:400px;background:var(--panel);border:2px solid var(--ink);border-radius:32px 8px 32px 8px;padding:20px;margin:auto;position:relative;box-shadow:6px 6px 0 var(--acc);display:grid;gap:10px}.card h2{font-size:20px}
 .tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border-radius:14px;padding:4px}
 .tabs button{padding:9px;border-radius:11px;font-weight:600;color:var(--mute)}.tabs .on{background:var(--ink);color:var(--bg)}
 .card input{width:100%;padding:11px 14px;border-radius:14px;border:2px solid var(--line);background:var(--bg);outline:0}.card input:focus{border-color:var(--lil)}
@@ -146,6 +146,10 @@ textarea{flex:1;resize:none;max-height:120px;padding:11px 16px;border-radius:22p
 .pcb{display:grid;place-items:center;gap:2px;width:70px;padding:8px 0;border-radius:16px 5px 16px 5px;background:var(--other);font-size:22px}.pcb small{font-size:11px;color:var(--mute)}
 .card textarea{width:100%;padding:11px 14px;border-radius:14px;border:2px solid var(--line);background:var(--bg);outline:0;resize:none;max-height:none}
 #hav,#ht,#hs{cursor:pointer}
+.mas{position:absolute;right:12px;top:-40px;width:84px;pointer-events:none;animation:pop .45s cubic-bezier(.3,1.5,.5,1)}
+#wtwrap{position:relative;width:min(100vw,720px)}#wtwrap #wtbox{width:100%}
+#wtwait{position:absolute;inset:0;z-index:2;background:rgba(19,15,27,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;padding:8px}
+#wtwait img{height:68%;max-height:210px;object-fit:contain}#wtwait p{font-weight:700;font-size:14px}
 .cbar .cb{width:58px;height:58px;font-size:22px}.cbar{gap:10px}
 .snd{display:grid;gap:8px}.srow{display:flex;align-items:center;gap:8px}.srow span{width:84px;font-size:14px;color:var(--mute)}.srow select{flex:1;min-width:0;padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:inherit}
 @media(max-width:780px){.un{display:none}.ib{width:38px;height:38px;font-size:17px}.chead{gap:8px}}
@@ -177,6 +181,7 @@ const CFG = {
 <div class="splash" id="splash"><svg viewBox="0 0 40 40"><path d="M20 2l4 14 14 4-14 4-4 14-4-14L2 20l14-4z" fill="#FF6B4A"/><circle cx="20" cy="20" r="5" fill="#C6F25C"/></svg></div>
 <section id="auth" hidden>
   <div class="card">
+    <img id="mhello" class="mas" src="mascot/nova-hello.png" alt="" hidden>
     <div class="logo"><svg viewBox="0 0 40 40"><path d="M20 2l4 14 14 4-14 4-4 14-4-14L2 20l14-4z" fill="#FF6B4A"/><circle cx="20" cy="20" r="5" fill="#C6F25C"/></svg><b>NovaChat</b></div>
     <div class="tabs"><button id="tIn" class="on" type="button">Вход</button><button id="tUp" type="button">Регистрация</button></div>
     <form id="af" style="display:grid;gap:12px;padding:0;border:0;background:none">
@@ -232,7 +237,7 @@ const CFG = {
 </div></div>
 <div class="ov" id="wt" hidden style="z-index:31;justify-content:flex-start;padding-top:max(10px,env(safe-area-inset-top))">
   <div class="wth"><b>🎬 Смотрим вместе</b><span id="wts"></span><button type="button" class="lnk" id="wtx">✕ Закрыть</button></div>
-  <div id="wtbox"></div>
+  <div id="wtwrap"><div id="wtbox"></div><div id="wtwait" hidden><img src="mascot/nova-watch.png" alt=""><p id="wtwt"></p></div></div>
   <div class="crow" style="flex-wrap:wrap;margin-top:6px"><button class="cb" id="wtnew"><span>🔗</span><small>Другое</small></button><button class="cb" id="wmic" hidden><span>🎙️</span><small>Микрофон</small></button><button class="cb red" id="wend" hidden><span>☎️</span><small>Звонок</small></button><button class="cb red" id="wtstop"><span>⏹</span><small>Закончить</small></button></div>
 </div>
 <div class="ov" id="vo" hidden style="z-index:29"><video id="vov" controls playsinline></video><p id="voe" style="font-size:13px;opacity:.8;padding:0 16px"></p><button class="cb red" id="voc"><span>✕</span><small>Закрыть</small></button></div>
@@ -356,7 +361,7 @@ const pickPhoto=cb=>{onPick=cb;fi.click()};
 
 /* ---------- вход / регистрация ---------- */
 function setMode(m){mode=m;$("tIn").classList.toggle("on",m==="in");$("tUp").classList.toggle("on",m==="up");
-  $("nm").hidden=$("unw").hidden=$("rp").hidden=m==="in";$("ab").textContent=m==="in"?"Войти":"Создать аккаунт";$("ae").textContent="";
+  $("nm").hidden=$("unw").hidden=$("rp").hidden=m==="in";$("mhello").hidden=m==="in";$("ab").textContent=m==="in"?"Войти":"Создать аккаунт";$("ae").textContent="";
   $("pw").autocomplete=m==="in"?"current-password":"new-password";drawReg()}
 const drawReg=()=>$("rav").replaceChildren(avatar({name:$("nm").value||"?",photo:regPhoto,color:colorOf("reg")},"sm"));
 $("tIn").onclick=()=>setMode("in");$("tUp").onclick=()=>setMode("up");
@@ -1069,7 +1074,7 @@ async function openWatch(chat,wid,src){
   if(!ok||!wid){toast("Не удалось открыть просмотр.");return}
   if(wt)closeWatch();
   const w=wt={chat,wid,k:src.k,v:src.v,applying:0,lead:false,synced:false,last:{pos:0,t:Date.now(),playing:false},pt:0,ptAt:0,ptInit:false,peerLeft:false,aloneSince:0,hereOnce:false,here:false};
-  $("wmic").hidden=$("wend").hidden=!call;$("wts").textContent="Подключаемся…";$("wt").hidden=false;
+  $("wmic").hidden=$("wend").hidden=!call;$("wts").textContent=$("wtwt").textContent="Подключаемся…";$("wtwait").hidden=false;$("wt").hidden=false;
   const box=$("wtbox");box.textContent="";
   if(src.k==="yt"){
     try{await loadYT()}catch{toast("Не удалось загрузить YouTube.");closeWatch();return}
@@ -1138,9 +1143,9 @@ const wPeerHere=w=>!!w.pt&&!w.peerLeft&&Date.now()-w.ptAt<25000;
 function wCheck(w){ // нет собеседника — просмотр на паузе; долго никого нет — сеанс завершается
   if(wt!==w)return;
   const here=wPeerHere(w);w.here=here;
-  if(here){w.aloneSince=0;w.hereOnce=true;$("wts").textContent="Смотрите вместе";return}
+  if(here){w.aloneSince=0;w.hereOnce=true;$("wts").textContent="Смотрите вместе";$("wtwait").hidden=true;return}
   if(!w.aloneSince)w.aloneSince=Date.now();
-  $("wts").textContent=w.hereOnce?"Собеседник вышел — просмотр на паузе":"Ждём собеседника…";
+  {const msg=w.hereOnce?"Собеседник вышел — просмотр на паузе":"Ждём собеседника…";$("wts").textContent=$("wtwt").textContent=msg;$("wtwait").hidden=false}
   if(wPlaying(w)){
     w.applying=Date.now()+1800;w.lead=true;
     if(w.k==="yt"){try{w.yt.pauseVideo()}catch{}}else w.vel.pause();
