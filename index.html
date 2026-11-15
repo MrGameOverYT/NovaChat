@@ -150,7 +150,7 @@ textarea{flex:1;resize:none;max-height:120px;padding:11px 16px;border-radius:22p
 #wtwrap{position:relative;width:min(100vw,720px)}#wtwrap #wtbox{width:100%}
 #wtwait{position:absolute;inset:0;z-index:2;background:rgba(19,15,27,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;padding:8px}
 #wtwait img{height:68%;max-height:210px;object-fit:contain}#wtwait p{font-weight:700;font-size:14px}
-.cbar .cb{width:58px;height:58px;font-size:22px}.cbar{gap:10px}
+.cbar .cb{width:52px;height:52px;font-size:20px}.cbar .cb small{font-size:9px}.cbar{gap:8px}
 .snd{display:grid;gap:8px}.srow{display:flex;align-items:center;gap:8px}.srow span{width:84px;font-size:14px;color:var(--mute)}.srow select{flex:1;min-width:0;padding:10px 12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:inherit}
 @media(max-width:780px){.un{display:none}.ib{width:38px;height:38px;font-size:17px}.chead{gap:8px}}
 @media(max-width:780px){
@@ -249,7 +249,7 @@ const CFG = {
   <video id="rv" autoplay playsinline muted></video><audio id="ra" autoplay></audio>
   <div class="cmid"><div id="cav"></div><h2 id="cn"></h2><p id="cs">Соединение…</p><p id="cm" class="cwarn"></p></div>
   <video id="lv" autoplay playsinline muted></video>
-  <div class="crow cbar"><button class="cb" id="bmic"><span>🎙️</span><small>Микрофон</small></button><button class="cb" id="bcam"><span>📷</span><small>Камера</small></button><button class="cb" id="bscr"><span>🖥️</span><small>Экран</small></button><button class="cb" id="bwt"><span>🎬</span><small>Вместе</small></button><button class="cb red" id="bend"><span>☎️</span><small>Завершить</small></button></div>
+  <div class="crow cbar"><button class="cb" id="bmic"><span>🎙️</span><small>Микрофон</small></button><button class="cb" id="bcam"><span>📷</span><small>Камера</small></button><button class="cb" id="bscr"><span>🖥️</span><small>Экран</small></button><button class="cb" id="bspk" hidden><span>🔊</span><small>Громко</small></button><button class="cb" id="bwt"><span>🎬</span><small>Вместе</small></button><button class="cb red" id="bend"><span>☎️</span><small>Завершить</small></button></div>
 </div>
 <input type="file" id="fi" accept="image/*" hidden>
 <div class="modal" id="pm" hidden><div class="card">
@@ -612,7 +612,7 @@ function openCall(c,stream,video){
   },()=>{}));
   if(c.caller)c.noAns=setTimeout(()=>{if(call===c&&!c.active){setDoc(doc(db,"calls",c.id),{status:"missed"},{merge:true}).catch(()=>{});endCall("Нет ответа",false,"missed")}},45000);
   $("cav").replaceChildren(avatar(c.peer,"lg"));$("cn").textContent=c.peer.name||"";
-  $("rv").srcObject=c.remote;$("ra").srcObject=c.remote;$("call").hidden=false;
+  $("rv").srcObject=c.remote;$("ra").srcObject=c.remote;$("call").hidden=false;spkStart(video);
   c.tick=setInterval(updCall,1000);sendState(c);updCall();
 }
 async function onSig(c,m){
@@ -643,6 +643,30 @@ function recordCall(c,outcome){ // звонивший записывает ит�
   const dur=c.t0?Math.round((Date.now()-c.t0)/1000):0,miss=["missed","busy","cancelled"].includes(outcome);
   postMsg([me.uid,c.peer.uid].sort().join("_"),{type:"call",text:miss?"📞 Пропущенный звонок":"📞 Звонок",call:{st:outcome,dur,video:!!c.wasVideo}}).catch(()=>{});
 }
+/* динамик во время звонка: в приложении для Android — громкая связь или разговорный динамик; в браузере — выбор устройства вывода, если их несколько */
+let spkLoud=false,spkDevs=[],spkIdx=0;
+const spkNative=()=>!!(window.NovaNative&&typeof window.NovaNative.setSpeaker==="function");
+async function spkStart(video){
+  $("bspk").hidden=true;
+  if(spkNative()){spkLoud=!!video;$("bspk").hidden=false;spkApply();return} // видеозвонок — громко, голосовой — у уха
+  try{
+    if($("ra").setSinkId){
+      const d=(await navigator.mediaDevices.enumerateDevices()).filter(x=>x.kind==="audiooutput");
+      if(d.length>1){spkDevs=d;spkIdx=0;$("bspk").hidden=false}
+    }
+  }catch{}
+}
+function spkApply(){
+  $("bspk").firstChild.textContent=spkLoud?"🔊":"📱";$("bspk").lastChild.textContent=spkLoud?"Громко":"У уха";
+  try{window.NovaNative.setSpeaker(spkLoud)}catch{}
+}
+function spkStop(){try{if(spkNative()&&window.NovaNative.resetAudio)window.NovaNative.resetAudio()}catch{}}
+$("bspk").onclick=async()=>{
+  if(spkNative()){spkLoud=!spkLoud;spkApply();toast(spkLoud?"Громкая связь":"Разговорный динамик");return}
+  if(!spkDevs.length)return;
+  spkIdx=(spkIdx+1)%spkDevs.length;
+  try{await $("ra").setSinkId(spkDevs[spkIdx].deviceId);toast("Звук: "+(spkDevs[spkIdx].label||"устройство "+(spkIdx+1)))}catch{toast("Не удалось переключить вывод звука.")}
+};
 function endCall(msg,write,outcome){
   const c=call;if(!c)return;call=null;
   if(c.caller){const oc=outcome||(write?(c.active?"ended":"cancelled"):null);if(oc)recordCall(c,oc==="ended"&&!c.active?"cancelled":oc)}
@@ -650,7 +674,7 @@ function endCall(msg,write,outcome){
   clearTimeout(c.noAns);clearInterval(c.tick);clearInterval(c.rp);c.unsubs.forEach(f=>f());
   try{c.pc.close()}catch{}
   c.local.getTracks().forEach(t=>t.stop());c.vtrack&&c.vtrack.stop();
-  $("call").hidden=true;$("rv").srcObject=null;$("ra").srcObject=null;$("lv").srcObject=null;ring(false);
+  spkStop();$("call").hidden=true;$("rv").srcObject=null;$("ra").srcObject=null;$("lv").srcObject=null;ring(false);
   if(msg)toast(msg);
 }
 async function setVideo(c,track){
